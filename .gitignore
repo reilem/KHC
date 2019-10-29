@@ -1,1 +1,6 @@
+# Out
 dist/*
+
+# Stack related
+.stack-work
+dist-newstyle
