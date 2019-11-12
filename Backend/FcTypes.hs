@@ -163,15 +163,14 @@ fcTyConApp tc tys = fcTyApp (FcTyCon tc) tys
 data Phase = Tc | Fc
 
 data FcTerm (a :: Phase) where
-  FcTmAbs     :: FcTmVar -> FcType -> FcTerm a -> FcTerm a            -- ^ Term abstraction: lambda x : ty . tm
-  FcTmVar     :: FcTmVar -> FcTerm a                                -- ^ Term variable
+  FcTmAbs     :: FcTmVar -> FcType -> FcTerm a -> FcTerm a             -- ^ Term abstraction: lambda x : ty . tm
+  FcTmVar     :: FcTmVar -> FcTerm a                                   -- ^ Term variable
   FcTmApp     :: FcTerm a -> FcTerm a -> FcTerm a                      -- ^ Term application
-  FcTmTyAbs   :: FcTyVar -> FcTerm a -> FcTerm a                      -- ^ Type abstraction: Lambda a . tm
-  FcTmTyApp   :: FcTerm a -> FcType -> FcTerm a                      -- ^ Type application
-  FcTmDataCon :: FcDataCon -> FcTerm a                              -- ^ Data constructor
-  FcTmLet     :: FcTmVar -> FcType -> FcTerm a -> FcTerm a -> FcTerm a  -- ^ Let binding: let x : ty = tm in tm
-  FcTmCase    :: FcTerm Fc -> [FcAlt Fc] -> FcTerm Fc                    -- ^ Case
-  FcTmCaseTc  :: FcTerm Tc -> [FcAlt Tc] -> FcTerm Tc                    -- ^ Nested Case
+  FcTmTyAbs   :: FcTyVar -> FcTerm a -> FcTerm a                       -- ^ Type abstraction: Lambda a . tm
+  FcTmTyApp   :: FcTerm a -> FcType -> FcTerm a                        -- ^ Type application
+  FcTmDataCon :: FcDataCon -> FcTerm a                                 -- ^ Data constructor
+  FcTmLet     :: FcTmVar -> FcType -> FcTerm a -> FcTerm a -> FcTerm a -- ^ Let binding: let x : ty = tm in tm
+  FcTmCase    :: FcTerm a -> [FcAlt a] -> FcTerm a                     -- ^ Case
 
 -- GEORGE: You should never need to make terms and patterns instances of Eq. If
 -- you do it means that something is probably wrong (the only setting where you
