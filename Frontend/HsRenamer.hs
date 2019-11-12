@@ -200,15 +200,26 @@ rnTerm (TmLet x tm1 tm2)  = do
   return (TmLet rnx rntm1 rntm2)
 rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
 
+-- | Rename a pattern
+-- | Turn this into tuple and check the "allDistint" here
+rnPat :: PsPat -> RnM (RnPat, [(PsTmVar, RnTmVar)])
+rnPat (HsPatCons dc ps) = do
+  rndc       <- lookupDataCon dc
+  (rnps, nestedBinds) <- mapAndUnzipM rnPat ps
+  let binds = concat $ nestedBinds
+  if not $ distinct $ map fst binds
+    then throwErrorRnM (text "Term variables are not distict")
+    else return (HsPatCons rndc rnps, binds)
+rnPat (HsPatVar x) = do
+  rnX <- rnTmVar x
+  return (HsPatVar rnX, [(x, rnX)])
+
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
-rnAlt _ = notImplemented "Alt renamer"
--- rnAlt (HsAlt (HsPat dc xs) tm) = do
---   rndc <- lookupDataCon dc
---   rnxs <- mapM rnTmVar xs
---   let binds = zipExact xs rnxs
---   rntm <- extendTmVars binds (rnTerm tm)
---   return (HsAlt (HsPat rndc rnxs) rntm)
+rnAlt (HsAlt pt tm) = do
+  (rnpt, binds) <- rnPat pt
+  rntm <- extendTmVars binds (rnTerm tm)
+  return (HsAlt rnpt rntm)
 
 -- | Rename a type constructor
 lookupTyCon :: PsTyCon -> RnM RnTyCon
