@@ -257,7 +257,9 @@ pTerm  =  pAppTerm
 
 -- | Parse a pattern
 pPat :: PsM PsPat
-pPat = HsPat <$> pDataCon <*> many pTmVar
+pPat =  HsPatCons <$> pDataCon <*> many pPat
+    <|> HsPatVar <$> pTmVar
+    <|> parens pPat
 
 -- | Parse a case alternative
 pAlt :: PsM PsAlt

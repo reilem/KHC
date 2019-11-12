@@ -495,17 +495,18 @@ elabHsAlt :: RnMonoTy {- Type of the scrutinee -}
           -> RnMonoTy {- Result type           -}
           -> RnAlt    {- Case alternative      -}
           -> GenM FcAlt
-elabHsAlt scr_ty res_ty (HsAlt (HsPat dc xs) rhs) = do
-  (as, orig_arg_tys, tc) <- liftGenM (dataConSig dc) -- Get the constructor's signature
-  fc_dc <- liftGenM (lookupDataCon dc)               -- Get the constructor's System F representation
-
-  (bs, ty_subst) <- liftGenM (freshenRnTyVars as)               -- Generate fresh universal type variables for the universal tvs
-  let arg_tys = map (substInPolyTy ty_subst) orig_arg_tys       -- Apply the renaming substitution to the argument types
-  (rhs_ty, fc_rhs) <- extendCtxTmsM xs arg_tys (elabTerm rhs)   -- Type check the right hand side
-  storeEqCs [ scr_ty :~: foldl TyApp (TyCon tc) (map TyVar bs)  -- The scrutinee type must match the pattern type
-            , res_ty :~: rhs_ty ]                               -- All right hand sides should be the same
-
-  return (FcAlt (FcConPat fc_dc (map rnTmVarToFcTmVar xs)) fc_rhs)
+elabHsAlt _ _ _ = notImplemented "Alt elaboration"
+-- elabHsAlt scr_ty res_ty (HsAlt (HsPat dc xs) rhs) = do
+--   (as, orig_arg_tys, tc) <- liftGenM (dataConSig dc) -- Get the constructor's signature
+--   fc_dc <- liftGenM (lookupDataCon dc)               -- Get the constructor's System F representation
+--
+--   (bs, ty_subst) <- liftGenM (freshenRnTyVars as)               -- Generate fresh universal type variables for the universal tvs
+--   let arg_tys = map (substInPolyTy ty_subst) orig_arg_tys       -- Apply the renaming substitution to the argument types
+--   (rhs_ty, fc_rhs) <- extendCtxTmsM xs arg_tys (elabTerm rhs)   -- Type check the right hand side
+--   storeEqCs [ scr_ty :~: foldl TyApp (TyCon tc) (map TyVar bs)  -- The scrutinee type must match the pattern type
+--             , res_ty :~: rhs_ty ]                               -- All right hand sides should be the same
+--
+--   return (FcAlt (FcConPat fc_dc (map rnTmVarToFcTmVar xs)) fc_rhs)
 
 -- | Covert a renamed type variable to a System F type
 rnTyVarToFcType :: RnTyVar -> FcType
@@ -894,21 +895,21 @@ elabTermWithSig untch theory tm poly_ty = do
                         fcTmAbs dbinds $
                           substFcTmInTm ev_subst $
                             substFcTyInTm fc_subst fc_tm
-  
+
   -- Unresolved vars
   let unresolved_tyvs = nub (ftyvsOf refined_fc_tm)
                           \\ map rnTyVarToFcTyVar untouchables
-  
+
   -- Substitute unresolved vars "a" with dummy types:
   --   as dummy types, we use the most general polymorphic type (forall a. a)
   unresolved_subst <- do
     new_tyvs <- mapM (freshFcTyVar . kindOf) unresolved_tyvs
     let new_tys = map (\a -> FcTyAbs a $ FcTyVar a) new_tyvs
     return $ foldMap (uncurry (|->)) $ zipExact unresolved_tyvs new_tys
-  
+
   -- Generate the resulting System F term
   return $ substFcTyInTm unresolved_subst refined_fc_tm
-  
+
   where
     (as,cs,ty) = destructPolyTy poly_ty
     fc_as      = map rnTyVarToFcTyVar (labelOf as)

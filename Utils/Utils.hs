@@ -16,3 +16,5 @@ zipWithExact _f _      _      = error "zipWithExact: length mismatch"
 distinct :: Eq a => [a] -> Bool
 distinct xs = nub xs == xs
 
+notImplemented :: String -> a
+notImplemented e = error ("Not Implemented: " ++ e)
