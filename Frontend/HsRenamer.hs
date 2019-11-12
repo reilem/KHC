@@ -203,16 +203,16 @@ rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
 -- | Rename a pattern
 -- | Turn this into tuple and check the "allDistint" here
 rnPat :: PsPat -> RnM (RnPat, [(PsTmVar, RnTmVar)])
-rnPat (HsPatCons dc ps) = do
+rnPat (HsConPat dc ps) = do
   rndc       <- lookupDataCon dc
   (rnps, nestedBinds) <- mapAndUnzipM rnPat ps
   let binds = concat $ nestedBinds
   if not $ distinct $ map fst binds
     then throwErrorRnM (text "Term variables are not distict")
-    else return (HsPatCons rndc rnps, binds)
-rnPat (HsPatVar x) = do
+    else return (HsConPat rndc rnps, binds)
+rnPat (HsVarPat x) = do
   rnX <- rnTmVar x
-  return (HsPatVar rnX, [(x, rnX)])
+  return (HsVarPat rnX, [(x, rnX)])
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
