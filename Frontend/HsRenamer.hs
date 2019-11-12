@@ -202,12 +202,13 @@ rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
-rnAlt (HsAlt (HsPat dc xs) tm) = do
-  rndc <- lookupDataCon dc
-  rnxs <- mapM rnTmVar xs
-  let binds = zipExact xs rnxs
-  rntm <- extendTmVars binds (rnTerm tm)
-  return (HsAlt (HsPat rndc rnxs) rntm)
+rnAlt _ = notImplemented "Alt renamer"
+-- rnAlt (HsAlt (HsPat dc xs) tm) = do
+--   rndc <- lookupDataCon dc
+--   rnxs <- mapM rnTmVar xs
+--   let binds = zipExact xs rnxs
+--   rntm <- extendTmVars binds (rnTerm tm)
+--   return (HsAlt (HsPat rndc rnxs) rntm)
 
 -- | Rename a type constructor
 lookupTyCon :: PsTyCon -> RnM RnTyCon
