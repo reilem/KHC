@@ -123,8 +123,8 @@ data HsAlt a = HsAlt (HsPat a) (Term a)
 type PsAlt = HsAlt Sym
 type RnAlt = HsAlt Name
 
-data HsPat a = HsPatVar  (HsTmVar a)
-             | HsPatCons (HsDataCon a) [HsPat a]
+data HsPat a = HsVarPat (HsTmVar a)
+             | HsConPat (HsDataCon a) [HsPat a]
 
 type PsPat = HsPat Sym
 type RnPat = HsPat Name
@@ -134,10 +134,10 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (HsAlt a) where
   needsParens _      = True
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsPat a) where
-  ppr (HsPatCons dc xs)        = ppr dc <+> hsep (map ppr xs)
-  ppr (HsPatVar  x    )        = ppr x
-  needsParens (HsPatVar  _  )  = False
-  needsParens (HsPatCons _ xs) = length xs > 0
+  ppr (HsConPat dc xs)        = ppr dc <+> hsep (map ppr xs)
+  ppr (HsVarPat  x    )        = ppr x
+  needsParens (HsVarPat  _  )  = False
+  needsParens (HsConPat _ xs) = length xs > 0
 
 -- * Type Patterns
 -- ------------------------------------------------------------------------------
