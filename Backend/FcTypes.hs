@@ -178,9 +178,9 @@ data FcTerm (a :: Phase) where
 
 -- | Patterns
 data FcPat (a :: Phase) where
-  FcConPat    :: FcDataCon  -> [FcTmVar] -> FcPat Fc
-  FcConPatNs  :: FcDataCon  -> [FcPat Tc]   -> FcPat Tc
-  FcVarPat    :: FcTmVar    -> FcPat Tc
+  FcConPat    :: FcDataCon  -> [FcTmVar] -> FcPat 'Fc
+  FcConPatNs  :: FcDataCon  -> [FcPat 'Tc]   -> FcPat 'Tc
+  FcVarPat    :: FcTmVar    -> FcPat 'Tc
 
 -- | Case alternative(s)
 data FcAlt (a :: Phase) where
