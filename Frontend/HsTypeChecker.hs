@@ -4,7 +4,7 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-} -- George says: God I hate this flag
 
-module Frontend.HsTypeChecker (hsElaborate) where
+module Frontend.HsTypeChecker (hsTypeCheck) where
 
 import Frontend.HsTypes
 import Frontend.HsRenamer
@@ -995,10 +995,10 @@ elabProgram theory (PgmData data_decl pgm) = do
 -- * Invoke the complete type checker
 -- ------------------------------------------------------------------------------
 
-hsElaborate :: RnEnv -> UniqueSupply -> RnProgram
+hsTypeCheck :: RnEnv -> UniqueSupply -> RnProgram
             -> (Either String ((((FcProgram Tc, RnPolyTy, FullTheory), (AssocList FcTyCon FcTyConInfo, AssocList FcDataCon FcDataConInfo)), UniqueSupply), TcEnv),
                 Trace)
-hsElaborate rn_gbl_env us pgm = runWriter
+hsTypeCheck rn_gbl_env us pgm = runWriter
                               $ runExceptT
                               $ flip runStateT  tc_init_gbl_env -- Empty when you start
                               $ flip runReaderT tc_init_ctx
