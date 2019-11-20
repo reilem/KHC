@@ -503,9 +503,9 @@ elabHsAlt scr_ty res_ty (HsAlt p rhs) = do
   return (FcAlt fc_p fc_rhs)
 
 -- | Elaborate a pattern
-elabHsPat :: RnMonoTy {- Expected type -}
-          -> RnPat    {- Pattern       -}
-          -> GenM (TcCtx, FcPat 'Tc) {- Elaborated pattern along with found term variables and their types -}
+elabHsPat :: RnMonoTy                {- Expected type -}
+          -> RnPat                   {- Pattern       -}
+          -> GenM (TcCtx, FcPat 'Tc) {- Context and elaborated pattern -}
 elabHsPat exp_ty (HsVarPat x) = do
   a <- TyVar <$> freshRnTyVar KStar -- Generate fresh type
   storeEqCs [exp_ty :~: a] -- Store equivalence
@@ -518,10 +518,10 @@ elabHsPat exp_ty (HsConPat dc ps) = do
   return (ctx, FcConPatNs fc_dc fc_ps) -- Return total context and elaborate pattern
 
 -- | Elaborate a list of patterns with corresponding types
-elabHsPats :: [RnMonoTy] -> [RnPat] -> GenM (TcCtx, [FcPat 'Tc])
-elabHsPats [] []           = do -- Retrieve context and return it
-  ctx <- ask
-  return (ctx, [])
+elabHsPats :: [RnMonoTy]                {- Expected type -}
+           -> [RnPat]                   {- Pattern       -}
+           -> GenM (TcCtx, [FcPat 'Tc]) {- Context and elaborated patterns -}
+elabHsPats [] []           = (\ctx -> (ctx, [])) <$> ask -- Retrieve context and return it
 elabHsPats (ty:tys) (p:ps) = do
   (ctx, fc_p)   <- elabHsPat ty p -- Elaborate the leading pattern and retrieve new context
   (ctx', fc_ps) <- setCtxM ctx (elabHsPats tys ps) -- Elaborate remaining patterns with new context
