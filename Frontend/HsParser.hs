@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase            #-}
 
 module Frontend.HsParser (hsParse) where
 
@@ -267,16 +268,21 @@ pPatMain :: PsM PsdPat
 pPatMain = chainl1 pPrimPat (pure PsdAppPat)
 
 -- Transform a parsed pattern into a haskell pattern
-pTransPat :: PsdPat -> PsPat
-pTransPat (PsdConPat dc)    = HsConPat dc []
-pTransPat (PsdVarPat x)     = HsVarPat x
-pTransPat (PsdAppPat p1 p2) = case pTransPat p1 of
-    HsConPat dc xs -> HsConPat dc (xs ++ [pTransPat p2])
-    HsVarPat _     -> error ("Error parsing pattern: " ++ (render $ ppr (PsdAppPat p1 p2)))
+pTransPat :: PsdPat -> Maybe PsPat
+pTransPat (PsdConPat dc)    = Just $ HsConPat dc []
+pTransPat (PsdVarPat x)     = Just $ HsVarPat x
+pTransPat (PsdAppPat p1 p2) = do
+    p1' <- pTransPat p1
+    p2' <- pTransPat p2
+    case p1' of
+      HsConPat dc xs -> Just $ HsConPat dc (xs ++ [p2'])
+      _              -> Nothing
 
 -- | Parse a pattern
 pPat :: PsM PsPat
-pPat = pTransPat <$> pPatMain
+pPat = pTransPat <$> pPatMain >>= \case
+  Nothing -> empty <?> "Error parsing: Weird looking pattern"
+  Just p  -> return p
 
 -- | Parse a case alternative
 pAlt :: PsM PsAlt
