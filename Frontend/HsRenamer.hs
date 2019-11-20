@@ -201,7 +201,6 @@ rnTerm (TmLet x tm1 tm2)  = do
 rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
 
 -- | Rename a pattern
--- | Turn this into tuple and check the "allDistint" here
 rnPat :: PsPat -> RnM (RnPat, [(PsTmVar, RnTmVar)])
 rnPat (HsConPat dc ps) = do
   dataConArityCheck dc ps
@@ -210,7 +209,7 @@ rnPat (HsConPat dc ps) = do
   let binds = concat $ nestedBinds
   case distinct $ map fst binds of
     True  -> return (HsConPat rndc rnps, binds)
-    False -> throwErrorRnM (text "Term variables are not distict" <+> ppr binds)
+    False -> throwErrorRnM (text "Term variables are not distict in pattern:" <+> ppr (HsConPat dc ps))
 rnPat (HsVarPat x) = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
