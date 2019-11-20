@@ -143,6 +143,13 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (HsPat a) where
   needsParens (HsVarPat _   ) = False
   needsParens (HsConPat _ xs) = length xs > 0
 
+instance PrettyPrint PsdPat where
+  ppr (PsdVarPat x )        = ppr x
+  ppr (PsdConPat dc)        = ppr dc
+  ppr (PsdAppPat p1 p2)     = ppr p1 <+> ppr p2
+  needsParens (PsdAppPat _ _) = True
+  needsParens _               = False
+
 -- * Type Patterns
 -- ------------------------------------------------------------------------------
 
