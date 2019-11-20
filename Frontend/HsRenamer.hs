@@ -204,12 +204,13 @@ rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
 -- | Turn this into tuple and check the "allDistint" here
 rnPat :: PsPat -> RnM (RnPat, [(PsTmVar, RnTmVar)])
 rnPat (HsConPat dc ps) = do
-  rndc       <- lookupDataCon dc
+  arityCheck ps <$> lookupDataConArgs dc
+  rndc                <- lookupDataCon dc
   (rnps, nestedBinds) <- mapAndUnzipM rnPat ps
   let binds = concat $ nestedBinds
-  if not $ distinct $ map fst binds
-    then throwErrorRnM (text "Term variables are not distict")
-    else return (HsConPat rndc rnps, binds)
+  case distinct $ map fst binds of
+    True  -> return (HsConPat rndc rnps, binds)
+    False -> throwErrorRnM (text "Term variables are not distict" <+> ppr binds)
 rnPat (HsVarPat x) = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
@@ -221,6 +222,12 @@ rnAlt (HsAlt pt tm) = do
   rntm <- extendTmVars binds (rnTerm tm)
   return (HsAlt rnpt rntm)
 
+-- |
+arityCheck :: (PrettyPrint a, PrettyPrint b) => [a] -> [b] -> RnM ()
+arityCheck xs ys = case length xs == length ys of
+  False -> throwErrorRnM (text "Arity not matched between" <+> ppr xs <+> text "and" <+> ppr ys)
+  _     -> return ()
+
 -- | Rename a type constructor
 lookupTyCon :: PsTyCon -> RnM RnTyCon
 lookupTyCon tc = hs_tc_ty_con <$> lookupTyConInfoRnM tc
@@ -228,6 +235,10 @@ lookupTyCon tc = hs_tc_ty_con <$> lookupTyConInfoRnM tc
 -- | Rename a data constructor
 lookupDataCon :: PsDataCon -> RnM RnDataCon
 lookupDataCon dc = hs_dc_data_con <$> lookupDataConInfoRnM dc
+
+-- | Get data constructors arity
+lookupDataConArgs :: PsDataCon -> RnM [RnPolyTy]
+lookupDataConArgs dc = hs_dc_arg_tys <$> lookupDataConInfoRnM dc
 
 -- GEORGE: Make this a separate function in Utils.Ctx?
 extendTmVars :: [(PsTmVar, RnTmVar)] -> RnM a -> RnM a
