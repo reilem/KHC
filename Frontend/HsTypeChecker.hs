@@ -497,51 +497,49 @@ elabHsAlt :: RnMonoTy         {- Type of the scrutinee  -}
           -> RnAlt            {- Case alternative       -}
           -> GenM (FcAlt 'Tc) {- Elaborated alternative -}
 elabHsAlt scr_ty res_ty (HsAlt p rhs) = do
-  (xs, xs_tys, fc_p) <- elabHsPat scr_ty res_ty p                -- Elaborate the pattern
-  (rhs_ty, fc_rhs)   <- extendCtxTmsM xs xs_tys (elabTerm rhs)   -- Type check the right hand side
-  storeEqCs          [ res_ty :~: rhs_ty ]                       -- All right hand sides should be the same
+  (ctx, fc_p)      <- elabHsPat scr_ty p                -- Elaborate the pattern
+  (rhs_ty, fc_rhs) <- setCtxM ctx (elabTerm rhs)   -- Type check the right hand side
+  storeEqCs        [ res_ty :~: rhs_ty ]                       -- All right hand sides should be the same
   return (FcAlt fc_p fc_rhs)
 
---  TODO: return explicit GAMMA, fresh alpha type and fc pat
 -- | Elaborate a pattern
-elabHsPat :: RnMonoTy                                {- Type of the scrutinee -}
-          -> RnMonoTy                                {- Result type           -}
-          -> RnPat                                   {- Pattern               -}
-          -> GenM ([RnTmVar], [RnPolyTy], FcPat 'Tc) {- Elaborated pattern along with found term variables and their types -}
-elabHsPat scr_ty _ (HsVarPat x) = do
-  -- storeEqCs [ ]
-  -- TODO: Make fresh var, new gamma with extend and use ask as continuation
-  -- TODO: Use types equiv with types, more modular than passing arround types and hard linking them to variables
-  return ([x], [monoTyToPolyTy scr_ty], FcVarPat $ rnTmVarToFcTmVar x)
-elabHsPat scr_ty res_ty (HsConPat dc ps) = do
-  -- TODO:
-  (as, orig_arg_tys, tc) <- liftGenM (dataConSig dc)                 -- Get the constructor's signature
-  fc_dc                  <- liftGenM (lookupDataCon dc)              -- Get the constructor's System F representation
-  (bs, ty_subst)         <- liftGenM (freshenRnTyVars as)            -- Generate fresh universal type variables for the universal tvs
-  let arg_tys            = map (substInPolyTy ty_subst) orig_arg_tys -- Apply the renaming substitution to the argument types
-  consPatternLengthCheck ps arg_tys                                  -- Check that ps and arg_tys have equal length
-  (xs, xs_tys, fc_ps)    <- foldM elabHsPatWithType ([], [], []) (zipExact ps arg_tys) -- Elaborate all patterns together with their matching argument types
-  storeEqCs              [ scr_ty :~: foldl TyApp (TyCon tc) (map TyVar bs) {- TODO: Extract this fold to a function -} ] -- The scrutinee type must match the pattern type
-  return (xs, xs_tys, FcConPatNs fc_dc fc_ps)
-  where
-    -- TODO: extract to brand new hsPats function, empty list = ask gamma
-    -- TODO: one empty, other not = panic (compiler fault), todo: make a panic function
-    -- TODO: both non empty = call p and get the new gamme, types and fc pat
-    -- TODO: setCtx on recursive tsPats call. Gets new gamma to return and all
-    elabHsPatWithType :: ([RnTmVar], [RnPolyTy], [FcPat 'Tc])       {- Accumulator -}
-                       -> (RnPat, RnPolyTy)                         {- Next pair of pattern and type -}
-                       -> GenM ([RnTmVar], [RnPolyTy], [FcPat 'Tc]) {- Result -}
-    elabHsPatWithType (xs, xs_tys, fc_ps) (p, arg_ty) = case polyTyToMonoTy arg_ty of -- Attempt to convert poly type to mono
-      Just arg_ty_mono -> do
-        (xs', xs_tys', fc_p) <- elabHsPat arg_ty_mono res_ty p       -- Elaborate the pattern, using the argument type as scrutinee type
-        return ((xs ++ xs'), (xs_tys ++ xs_tys'), (fc_ps ++ [fc_p])) -- Return concatenated term variables, types and patterns to preserve order
-      Nothing   -> throwErrorM $ text "elabHsPatWithType - Unable to convert poly type into mono type"
-      -- TODO: put this into a function which converts OR throws an error
+elabHsPat :: RnMonoTy {- Expected type -}
+          -> RnPat    {- Pattern       -}
+          -> GenM (TcCtx, FcPat 'Tc) {- Elaborated pattern along with found term variables and their types -}
+elabHsPat exp_ty (HsVarPat x) = do
+  a <- TyVar <$> freshRnTyVar KStar -- Generate fresh type
+  storeEqCs [exp_ty :~: a] -- Store equivalence
+  ctx <- extendCtxTmM x (monoTyToPolyTy a) (ask) -- Extend context and ask it explicitly
+  return (ctx, FcVarPat $ rnTmVarToFcTmVar x) -- Return explicit context and elaborated pattern
+elabHsPat exp_ty (HsConPat dc ps) = do
+  (fc_dc, pat_ty, arg_tys) <- elabPatDataCon dc     -- Elaborate data constructor
+  (ctx, fc_ps)             <- elabHsPats arg_tys ps -- Elaborate all patterns together with their matching argument types
+  storeEqCs                [ exp_ty :~: pat_ty ]    -- The expected type must match the pattern type
+  return (ctx, FcConPatNs fc_dc fc_ps) -- Return total context and elaborate pattern
 
-    consPatternLengthCheck :: [RnPat] -> [RnPolyTy] -> GenM ()  -- TODO: move arity check to renamer
-    consPatternLengthCheck x y = if length x /= length y
-      then throwErrorM $ text "In a pattern," <+> ppr dc <+> text "was passed" <+> text ((show $ length x) ++ " argument(s), but it requires " ++ (show $ length y))
-      else return ()
+-- | Elaborate a list of patterns with corresponding types
+elabHsPats :: [RnMonoTy] -> [RnPat] -> GenM (TcCtx, [FcPat 'Tc])
+elabHsPats [] []           = do -- Retrieve context and return it
+  ctx <- ask
+  return (ctx, [])
+elabHsPats (ty:tys) (p:ps) = do
+  (ctx, fc_p)   <- elabHsPat ty p -- Elaborate the leading pattern and retrieve new context
+  (ctx', fc_ps) <- setCtxM ctx (elabHsPats tys ps) -- Elaborate remaining patterns with new context
+  return (ctx', fc_p : fc_ps) -- Return the total context and elaborated patterns
+elabHsPats [] (_:_)        = panic "elabHsPats was given more types than patterns."
+elabHsPats (_:_) []        = panic "elabHsPats was given more patterns than types."
+
+-- | Elaborate a pattern data consturctor, return the system F data con, the pattern type and all the arg types
+elabPatDataCon :: RnDataCon -> GenM (FcDataCon, RnMonoTy, [RnMonoTy])
+elabPatDataCon dc = do
+  (bs, arg_tys, tc) <- liftGenM (freshenDataConSig dc) -- Get the constructor's freshened signature
+  fc_dc             <- liftGenM (lookupDataCon dc)     -- Get the constructor's System F representation
+  let pat_ty        = genPatTy tc bs                   -- Generate pattern mono type
+  return (fc_dc, pat_ty, arg_tys)
+
+-- | Generate the type of a pattern using type constructor and type variables
+genPatTy :: RnTyCon -> [RnTyVar] -> RnMonoTy
+genPatTy tc bs = foldl TyApp (TyCon tc) (map TyVar bs)
 
 -- | Covert a renamed type variable to a System F type
 rnTyVarToFcType :: RnTyVar -> FcType
