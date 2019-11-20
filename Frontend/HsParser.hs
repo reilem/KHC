@@ -281,7 +281,7 @@ pTransPat (PsdAppPat p1 p2) = do
 -- | Parse a pattern
 pPat :: PsM PsPat
 pPat = pTransPat <$> pPatMain >>= \case
-  Nothing -> empty <?> "Error parsing: Weird looking pattern"
+  Nothing -> empty
   Just p  -> return p
 
 -- | Parse a case alternative
