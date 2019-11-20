@@ -204,7 +204,7 @@ rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
 -- | Turn this into tuple and check the "allDistint" here
 rnPat :: PsPat -> RnM (RnPat, [(PsTmVar, RnTmVar)])
 rnPat (HsConPat dc ps) = do
-  arityCheck ps <$> lookupDataConArgs dc
+  dataConArityCheck dc ps
   rndc                <- lookupDataCon dc
   (rnps, nestedBinds) <- mapAndUnzipM rnPat ps
   let binds = concat $ nestedBinds
@@ -223,10 +223,12 @@ rnAlt (HsAlt pt tm) = do
   return (HsAlt rnpt rntm)
 
 -- |
-arityCheck :: (PrettyPrint a, PrettyPrint b) => [a] -> [b] -> RnM ()
-arityCheck xs ys = case length xs == length ys of
-  False -> throwErrorRnM (text "Arity not matched between" <+> ppr xs <+> text "and" <+> ppr ys)
-  _     -> return ()
+dataConArityCheck :: PsDataCon -> [PsPat] -> RnM ()
+dataConArityCheck dc ps = do
+  args <- lookupDataConArgs dc
+  case length args == length ps of
+    False -> throwErrorRnM (text "DataCon" <+> ppr dc <+> text "passed wrong number of arguments in pattern - expected" <+> (int $ length args) <+> text "but received" <+> (int $ length ps))
+    _     -> return ()
 
 -- | Rename a type constructor
 lookupTyCon :: PsTyCon -> RnM RnTyCon
