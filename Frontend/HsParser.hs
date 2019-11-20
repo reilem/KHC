@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase            #-}
 
 module Frontend.HsParser (hsParse) where
 
@@ -6,6 +7,7 @@ import Frontend.HsTypes
 import Utils.Kind (Kind(..))
 import Utils.Var (Sym, mkSym, PsTyVar, mkPsTyVar, PsTmVar, mkPsTmVar)
 import Utils.Annotated (Ann((:|)))
+import Utils.PrettyPrint (render, ppr)
 
 -- | Utilities
 import Control.Applicative (Alternative, liftA2, (<**>))
@@ -255,11 +257,32 @@ pTerm  =  pAppTerm
           <*  symbol "of"
           <*> some (indent pAlt)
 
+-- Parse a primary parsed pattern (highest priority)
+pPrimPat :: PsM PsdPat
+pPrimPat =  PsdConPat <$> pDataCon
+        <|> PsdVarPat <$> pTmVar
+        <|> parens pPatMain
+
+-- Parse a parsed pattern (lowest priority)
+pPatMain :: PsM PsdPat
+pPatMain = chainl1 pPrimPat (pure PsdAppPat)
+
+-- Transform a parsed pattern into a haskell pattern
+pTransPat :: PsdPat -> Maybe PsPat
+pTransPat (PsdConPat dc)    = Just $ HsConPat dc []
+pTransPat (PsdVarPat x)     = Just $ HsVarPat x
+pTransPat (PsdAppPat p1 p2) = do
+    p1' <- pTransPat p1
+    p2' <- pTransPat p2
+    case p1' of
+      HsConPat dc xs -> Just $ HsConPat dc (xs ++ [p2'])
+      _              -> Nothing
+
 -- | Parse a pattern
 pPat :: PsM PsPat
-pPat =  HsConPat <$> pDataCon <*> many pPat
-    <|> HsVarPat <$> pTmVar
-    <|> parens pPat
+pPat = pTransPat <$> pPatMain >>= \case
+  Nothing -> empty
+  Just p  -> return p
 
 -- | Parse a case alternative
 pAlt :: PsM PsAlt
