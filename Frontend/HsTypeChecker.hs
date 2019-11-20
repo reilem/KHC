@@ -497,9 +497,9 @@ elabHsAlt :: RnMonoTy         {- Type of the scrutinee  -}
           -> RnAlt            {- Case alternative       -}
           -> GenM (FcAlt 'Tc) {- Elaborated alternative -}
 elabHsAlt scr_ty res_ty (HsAlt p rhs) = do
-  (ctx, fc_p)      <- elabHsPat scr_ty p                -- Elaborate the pattern
-  (rhs_ty, fc_rhs) <- setCtxM ctx (elabTerm rhs)   -- Type check the right hand side
-  storeEqCs        [ res_ty :~: rhs_ty ]                       -- All right hand sides should be the same
+  (ctx, fc_p)      <- elabHsPat scr_ty p         -- Elaborate the pattern
+  (rhs_ty, fc_rhs) <- setCtxM ctx (elabTerm rhs) -- Type check the right hand side
+  storeEqCs        [ res_ty :~: rhs_ty ]         -- All right hand sides should be the same
   return (FcAlt fc_p fc_rhs)
 
 -- | Elaborate a pattern
@@ -507,25 +507,25 @@ elabHsPat :: RnMonoTy                {- Expected type -}
           -> RnPat                   {- Pattern       -}
           -> GenM (TcCtx, FcPat 'Tc) {- Context and elaborated pattern -}
 elabHsPat exp_ty (HsVarPat x) = do
-  a <- TyVar <$> freshRnTyVar KStar -- Generate fresh type
-  storeEqCs [exp_ty :~: a] -- Store equivalence
+  a <- TyVar <$> freshRnTyVar KStar              -- Generate fresh type
+  storeEqCs [exp_ty :~: a]                       -- Store equivalence
   ctx <- extendCtxTmM x (monoTyToPolyTy a) (ask) -- Extend context and ask it explicitly
-  return (ctx, FcVarPat $ rnTmVarToFcTmVar x) -- Return explicit context and elaborated pattern
+  return (ctx, FcVarPat $ rnTmVarToFcTmVar x)    -- Return explicit context and elaborated pattern
 elabHsPat exp_ty (HsConPat dc ps) = do
   (fc_dc, pat_ty, arg_tys) <- elabPatDataCon dc     -- Elaborate data constructor
   (ctx, fc_ps)             <- elabHsPats arg_tys ps -- Elaborate all patterns together with their matching argument types
   storeEqCs                [ exp_ty :~: pat_ty ]    -- The expected type must match the pattern type
-  return (ctx, FcConPatNs fc_dc fc_ps) -- Return total context and elaborate pattern
+  return (ctx, FcConPatNs fc_dc fc_ps)              -- Return total context and elaborate pattern
 
--- | Elaborate a list of patterns with corresponding types
-elabHsPats :: [RnMonoTy]                {- Expected type -}
-           -> [RnPat]                   {- Pattern       -}
+-- | Elaborate a list of patterns with corresponding expected types
+elabHsPats :: [RnMonoTy]                {- Expected types -}
+           -> [RnPat]                   {- Patterns       -}
            -> GenM (TcCtx, [FcPat 'Tc]) {- Context and elaborated patterns -}
 elabHsPats [] []           = (\ctx -> (ctx, [])) <$> ask -- Retrieve context and return it
 elabHsPats (ty:tys) (p:ps) = do
-  (ctx, fc_p)   <- elabHsPat ty p -- Elaborate the leading pattern and retrieve new context
+  (ctx, fc_p)   <- elabHsPat ty p                  -- Elaborate the leading pattern and retrieve new context
   (ctx', fc_ps) <- setCtxM ctx (elabHsPats tys ps) -- Elaborate remaining patterns with new context
-  return (ctx', fc_p : fc_ps) -- Return the total context and elaborated patterns
+  return (ctx', fc_p : fc_ps)                      -- Return the total context and elaborated patterns
 elabHsPats [] (_:_)        = panic "elabHsPats was given more types than patterns."
 elabHsPats (_:_) []        = panic "elabHsPats was given more patterns than types."
 
