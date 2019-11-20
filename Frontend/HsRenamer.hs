@@ -201,15 +201,15 @@ rnTerm (TmLet x tm1 tm2)  = do
 rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
 
 -- | Rename a pattern
--- | Turn this into tuple and check the "allDistint" here
 rnPat :: PsPat -> RnM (RnPat, [(PsTmVar, RnTmVar)])
 rnPat (HsConPat dc ps) = do
-  rndc       <- lookupDataCon dc
+  dataConArityCheck dc ps
+  rndc                <- lookupDataCon dc
   (rnps, nestedBinds) <- mapAndUnzipM rnPat ps
   let binds = concat $ nestedBinds
-  if not $ distinct $ map fst binds
-    then throwErrorRnM (text "Term variables are not distict")
-    else return (HsConPat rndc rnps, binds)
+  case distinct (map fst binds) of
+    True  -> return (HsConPat rndc rnps, binds)
+    False -> throwErrorRnM (text "Term variables are not distict in pattern:" <+> ppr (HsConPat dc ps))
 rnPat (HsVarPat x) = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
@@ -221,6 +221,14 @@ rnAlt (HsAlt pt tm) = do
   rntm <- extendTmVars binds (rnTerm tm)
   return (HsAlt rnpt rntm)
 
+-- |
+dataConArityCheck :: PsDataCon -> [PsPat] -> RnM ()
+dataConArityCheck dc ps = do
+  args <- lookupDataConArgs dc
+  case length args == length ps of
+    False -> throwErrorRnM (text "DataCon" <+> ppr dc <+> text "passed wrong number of arguments in pattern - expected" <+> (int $ length args) <+> text "but received" <+> (int $ length ps))
+    _     -> return ()
+
 -- | Rename a type constructor
 lookupTyCon :: PsTyCon -> RnM RnTyCon
 lookupTyCon tc = hs_tc_ty_con <$> lookupTyConInfoRnM tc
@@ -228,6 +236,10 @@ lookupTyCon tc = hs_tc_ty_con <$> lookupTyConInfoRnM tc
 -- | Rename a data constructor
 lookupDataCon :: PsDataCon -> RnM RnDataCon
 lookupDataCon dc = hs_dc_data_con <$> lookupDataConInfoRnM dc
+
+-- | Get data constructors arity
+lookupDataConArgs :: PsDataCon -> RnM [RnPolyTy]
+lookupDataConArgs dc = hs_dc_arg_tys <$> lookupDataConInfoRnM dc
 
 -- GEORGE: Make this a separate function in Utils.Ctx?
 extendTmVars :: [(PsTmVar, RnTmVar)] -> RnM a -> RnM a
