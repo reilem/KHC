@@ -207,7 +207,7 @@ rnPat (HsConPat dc ps) = do
   rndc                <- lookupDataCon dc
   (rnps, nestedBinds) <- mapAndUnzipM rnPat ps
   let binds = concat $ nestedBinds
-  case distinct $ map fst binds of
+  case distinct (map fst binds) of
     True  -> return (HsConPat rndc rnps, binds)
     False -> throwErrorRnM (text "Term variables are not distict in pattern:" <+> ppr (HsConPat dc ps))
 rnPat (HsVarPat x) = do
