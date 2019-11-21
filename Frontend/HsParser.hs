@@ -7,7 +7,6 @@ import Frontend.HsTypes
 import Utils.Kind (Kind(..))
 import Utils.Var (Sym, mkSym, PsTyVar, mkPsTyVar, PsTmVar, mkPsTmVar)
 import Utils.Annotated (Ann((:|)))
-import Utils.PrettyPrint (render, ppr)
 
 -- | Utilities
 import Control.Applicative (Alternative, liftA2, (<**>))

@@ -123,10 +123,18 @@ instance SubstVar FcTmVar (FcTerm a) (FcTerm a) where
 
 -- | Substitute a term variable for a term in a case alternative
 instance SubstVar FcTmVar (FcTerm a) (FcAlt a) where
-  substVar x xtm (FcAlt (FcConPat dc xs) tm)
+  substVar x xtm (FcAlt p tm) = FcAlt (substVar x xtm p) (substVar x xtm tm)
+
+-- | Substitute a term variable for a term in a pattern
+instance SubstVar FcTmVar (FcTerm a) (FcPat a) where
+  substVar x _ (FcConPat dc xs)
     | not (distinct xs) = error "substFcTmVarInAlt: Variables in pattern are not distinct" -- extra redundancy for safety
-    | any (==x) xs      = error "substFcTmVarInAlt: Shadowing"
-    | otherwise         = FcAlt (FcConPat dc xs) (substVar x xtm tm)
+    | any (==x) xs      = error "substFcTmVarInPat: Shadowing"
+    | otherwise         = (FcConPat dc xs)
+  substVar x _ (FcVarPat y)
+    | x == y            = error "substFcTmVarInPat: Shadowing" -- extra redundancy for safety
+    | otherwise         = (FcVarPat y)
+  substVar x xtm (FcConPatNs dc ps) = FcConPatNs dc (substVar x xtm ps)
 
 -- ------------------------------------------------------------------------------
 
