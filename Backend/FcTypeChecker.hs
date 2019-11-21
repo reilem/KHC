@@ -105,46 +105,53 @@ tcFcDataDecl (FcDataDecl _tc as dcs) = do
       throwError "tcFcDataDecl: Kind mismatch (FcDataDecl)"
 
 -- | Type check a top-level value binding
-tcFcValBind :: FcValBind a -> FcM FcCtx
+tcFcValBind :: FcValBind a -> FcM (FcValBind 'Fc, FcCtx)
 tcFcValBind (FcValBind x ty tm) = do
   tmVarNotInFcCtxM x  -- GEORGE: Ensure is not already bound
   kind <- tcType ty
   unless (kind == KStar) $
     throwError "tcFcValBind: Kind mismatch (FcValBind)"
-  ty' <- extendCtxTmM x ty (tcTerm tm)
+  (fc_tm, ty') <- extendCtxTmM x ty (tcTerm tm)
   unless (ty `eqFcTypes` ty') $ throwErrorM (text "Global let type doesnt match:"
                                 $$ parens (text "given:" <+> ppr ty)
                                 $$ parens (text "inferred:" <+> ppr ty'))
-  extendCtxTmM x ty ask -- GEORGE: Return the extended environment
+  ctx <- extendCtxTmM x ty ask -- GEORGE: Return the extended environment
+  return (FcValBind x ty fc_tm, ctx)
 
 -- | Type check a program
-tcFcProgram :: FcProgram a -> FcM FcType
+tcFcProgram :: FcProgram a -> FcM (FcProgram 'Fc, FcType)
 -- Type check a datatype declaration
 tcFcProgram (FcPgmDataDecl datadecl pgm) = do
   tcFcDataDecl datadecl
-  tcFcProgram pgm
+  (fc_pgm, ty) <- tcFcProgram pgm
+  return (FcPgmDataDecl datadecl fc_pgm, ty)
 -- Type check a top-level value binding
 tcFcProgram (FcPgmValDecl valbind pgm) = do
-  fc_ctx <- tcFcValBind valbind
-  setCtxM fc_ctx $ tcFcProgram pgm
+  (fc_valbind, fc_ctx) <- tcFcValBind valbind
+  (fc_pgm, ty)         <- setCtxM fc_ctx $ tcFcProgram pgm
+  return (FcPgmValDecl fc_valbind fc_pgm, ty)
 -- Type check the top-level program expression
-tcFcProgram (FcPgmTerm tm) = tcTerm tm
+tcFcProgram (FcPgmTerm tm) = do
+  (fc_tm, ty) <- tcTerm tm
+  return (FcPgmTerm fc_tm, ty)
 
 -- | Type check a System F term
-tcTerm :: FcTerm a -> FcM FcType
+tcTerm :: FcTerm a -> FcM (FcTerm 'Fc, FcType)
 tcTerm (FcTmAbs x ty1 tm) = do
   kind <- tcType ty1 -- GEORGE: Should have kind star
   unless (kind == KStar) $
     throwError "tcTerm: Kind mismatch (FcTmAbs)"
-  ty2  <- extendCtxTmM x ty1 (tcTerm tm)
-  return (mkFcArrowTy ty1 ty2)
-tcTerm (FcTmVar x) = lookupTmVarM x
+  (fc_tm, ty2)  <- extendCtxTmM x ty1 (tcTerm tm)
+  return (FcTmAbs x ty1 fc_tm, mkFcArrowTy ty1 ty2)
+tcTerm (FcTmVar x) = do
+  ty <- lookupTmVarM x
+  return (FcTmVar x, ty)
 tcTerm (FcTmApp tm1 tm2)  = do
-  ty1 <- tcTerm tm1
-  ty2 <- tcTerm tm2
+  (fc_tm1, ty1) <- tcTerm tm1
+  (fc_tm2, ty2) <- tcTerm tm2
   case isFcArrowTy ty1 of
     Just (ty1a, ty1b) -> alphaEqFcTypes ty1a ty2 >>= \case
-      True  -> return ty1b
+      True  -> return (FcTmApp fc_tm1 fc_tm2, ty1b)
       False -> throwErrorM (text "tcTerm" <+> text "FcTmApp" $$ pprPar ty1 $$ pprPar ty2)
     Nothing           -> throwErrorM (text "Wrong function FcType application"
                                       $$ parens (text "ty1=" <+> ppr ty1)
@@ -152,27 +159,31 @@ tcTerm (FcTmApp tm1 tm2)  = do
 
 tcTerm (FcTmTyAbs a tm) = do
   tyVarNotInFcCtxM a -- GEORGE: Ensure not already bound
-  ty <- extendCtxTyM a (kindOf a) (tcTerm tm)
-  return (FcTyAbs a ty)
+  (fc_tm, ty) <- extendCtxTyM a (kindOf a) (tcTerm tm)
+  return (FcTmTyAbs a fc_tm, FcTyAbs a ty)
 tcTerm (FcTmTyApp tm ty) = do
   kind <- tcType ty
   tcTerm tm >>= \case
-    FcTyAbs a tm_ty
-      | kindOf a == kind -> return $ substVar a ty tm_ty
+    (fc_tm, FcTyAbs a tm_ty)
+      | kindOf a == kind -> return (FcTmTyApp fc_tm ty, substVar a ty tm_ty)
     _other               -> throwError "Malformed type application"
 
-tcTerm (FcTmDataCon dc) = mkDataConTy <$> lookupDataConTyM dc
+tcTerm (FcTmDataCon dc) = do
+  ty <- mkDataConTy <$> lookupDataConTyM dc
+  return (FcTmDataCon dc, ty)
 tcTerm (FcTmLet x ty tm1 tm2) = do
   tmVarNotInFcCtxM x -- GEORGE: Ensure not already bound
   kind <- tcType ty
   unless (kind == KStar) $
     throwError "tcTerm: Kind mismatch (FcTmLet)"
-  ty1  <- extendCtxTmM x ty (tcTerm tm1)
+  (fc_tm1, ty1)  <- extendCtxTmM x ty (tcTerm tm1)
   unless (ty `eqFcTypes` ty1) $ throwError "Let type doesnt match"
-  extendCtxTmM x ty (tcTerm tm2)
+  (fc_tm2, ty2)   <- extendCtxTmM x ty (tcTerm tm2)
+  return (FcTmLet x ty fc_tm1 fc_tm2, ty2)
 tcTerm (FcTmCase scr alts) = do
-  scr_ty <- tcTerm scr
-  tcAlts scr_ty alts
+  (fc_scr, scr_ty) <- tcTerm scr
+  (fc_alts, ty)    <- tcAlts scr_ty alts
+  return (FcTmCase fc_scr fc_alts, ty)
 
 -- | Kind check a type
 tcType :: FcType -> FcM Kind
@@ -192,16 +203,16 @@ tcType (FcTyApp ty1 ty2) = do
 tcType (FcTyCon tc) = lookupTyConKindM tc
 
 -- | Type check a list of case alternatives
-tcAlts :: FcType -> [FcAlt a] -> FcM FcType
+tcAlts :: FcType -> [FcAlt a] -> FcM ([FcAlt 'Fc], FcType)
 tcAlts scr_ty alts
   | null alts = throwError "Case alternatives are empty"
   | otherwise = do
-      rhs_tys <- mapM (tcAlt scr_ty) alts
+      (fc_alts, rhs_tys) <- mapAndUnzipM (tcAlt scr_ty) alts
       ensureIdenticalTypes rhs_tys
       let (ty:_) = rhs_tys
-      return ty
+      return (fc_alts, ty)
 
-tcAlt :: FcType -> FcAlt a -> FcM FcType
+tcAlt :: FcType -> FcAlt a -> FcM (FcAlt 'Fc, FcType)
 tcAlt scr_ty (FcAlt (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
   Just (tc, tys) -> do
     tmVarsNotInFcCtxM xs -- GEORGE: Ensure not bound already
@@ -210,7 +221,8 @@ tcAlt scr_ty (FcAlt (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
       throwErrorM (text "tcAlt" <+> colon <+> text "The type of the scrutinee does not match that of the pattern")
     let ty_subst     = mconcat (zipWithExact (|->) as tys)
     let real_arg_tys = map (substFcTyInTy ty_subst) arg_tys
-    extendCtxTmsM xs real_arg_tys (tcTerm rhs)
+    (fc_rhs, ty)     <- extendCtxTmsM xs real_arg_tys (tcTerm rhs)
+    return (FcAlt (FcConPat dc xs) fc_rhs, ty)
   Nothing -> throwErrorM (text "destructScrTy" <+> colon <+> text "Not a tycon application")
 
 -- | Ensure that all types are syntactically the same
@@ -227,7 +239,7 @@ ensureIdenticalTypes types = unless (go types) $ throwError "Type mismatch in ca
 -- GEORGE: Refine the type and also print more stuff out
 
 fcTypeCheck :: (AssocList FcTyCon FcTyConInfo, AssocList FcDataCon FcDataConInfo) -> UniqueSupply -> FcProgram a
-            -> (Either String ((FcType, UniqueSupply), FcGblEnv), Trace)
+            -> (Either String ((FcProgram 'Fc, FcType, UniqueSupply), FcGblEnv), Trace)
 fcTypeCheck (tc_env, dc_env) us pgm = runWriter
                                     $ runExceptT
                                     $ flip runStateT  fc_init_gbl_env

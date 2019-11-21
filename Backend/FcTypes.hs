@@ -225,15 +225,15 @@ data FcDataDecl = FcDataDecl { fdata_decl_tc   :: FcTyCon                 -- ^ T
                              }
 
 -- | Top-level Value Binding
-data FcValBind a = FcValBind { fval_bind_var :: FcTmVar   -- ^ Variable Name
-                             , fval_bind_ty  :: FcType    -- ^ Variable Type
-                             , fval_bind_tm  :: FcTerm a  -- ^ Variable Value
-                             }
+data FcValBind (a :: Phase) = FcValBind { fval_bind_var :: FcTmVar   -- ^ Variable Name
+                                        , fval_bind_ty  :: FcType    -- ^ Variable Type
+                                        , fval_bind_tm  :: FcTerm a  -- ^ Variable Value
+                                        }
 
 -- | Program
-data FcProgram a = FcPgmDataDecl FcDataDecl    (FcProgram a) -- ^ Data Declaration
-                 | FcPgmValDecl  (FcValBind a) (FcProgram a) -- ^ Value Binding
-                 | FcPgmTerm     (FcTerm a)                  -- ^ Term
+data FcProgram (a :: Phase) = FcPgmDataDecl FcDataDecl    (FcProgram a) -- ^ Data Declaration
+                            | FcPgmValDecl  (FcValBind a) (FcProgram a) -- ^ Value Binding
+                            | FcPgmTerm     (FcTerm a)                  -- ^ Term
 
 -- * Collecting Free Variables Out Of Objects
 -- ------------------------------------------------------------------------------
