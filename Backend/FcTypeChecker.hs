@@ -239,7 +239,7 @@ ensureIdenticalTypes types = unless (go types) $ throwError "Type mismatch in ca
 -- GEORGE: Refine the type and also print more stuff out
 
 fcTypeCheck :: (AssocList FcTyCon FcTyConInfo, AssocList FcDataCon FcDataConInfo) -> UniqueSupply -> FcProgram a
-            -> (Either String ((FcProgram 'Fc, FcType, UniqueSupply), FcGblEnv), Trace)
+            -> (Either String (((FcProgram 'Fc, FcType), UniqueSupply), FcGblEnv), Trace)
 fcTypeCheck (tc_env, dc_env) us pgm = runWriter
                                     $ runExceptT
                                     $ flip runStateT  fc_init_gbl_env

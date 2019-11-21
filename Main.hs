@@ -31,10 +31,12 @@ runTest file = do
         (Right (((rn_pgm, _rn_ctx), us1), rn_env), _) ->
           case hsTypeCheck rn_env us1 rn_pgm of
             (Left err,_) -> throwMainError "typechecker" err
-            (Right ((((fc_pgm, tc_ty, theory), envs), us2), _tc_env), _) ->
-                  case fcTypeCheck envs us2 fc_pgm of
+            (Right ((((tc_pgm, tc_ty, theory), envs), us2), _tc_env), _) ->
+                  case fcTypeCheck envs us2 tc_pgm of
                     (Left err,_) -> throwMainError "System F typechecker" err
-                    (Right ((fc_ty, _us3), _fc_env), _trace) -> do
+                    (Right (((fc_pgm, fc_ty), _us3), _fc_env), _trace) -> do
+                      putStrLn "---------------------------- Type Checked Program ---------------------------"
+                      putStrLn $ renderWithColor $ ppr tc_pgm
                       putStrLn "---------------------------- Elaborated Program ---------------------------"
                       putStrLn $ renderWithColor $ ppr fc_pgm
                       putStrLn "------------------------------- Program Type ------------------------------"
