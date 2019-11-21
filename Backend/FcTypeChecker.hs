@@ -105,7 +105,7 @@ tcFcDataDecl (FcDataDecl _tc as dcs) = do
       throwError "tcFcDataDecl: Kind mismatch (FcDataDecl)"
 
 -- | Type check a top-level value binding
-tcFcValBind :: FcValBind 'Fc -> FcM FcCtx
+tcFcValBind :: FcValBind a -> FcM FcCtx
 tcFcValBind (FcValBind x ty tm) = do
   tmVarNotInFcCtxM x  -- GEORGE: Ensure is not already bound
   kind <- tcType ty
@@ -118,7 +118,7 @@ tcFcValBind (FcValBind x ty tm) = do
   extendCtxTmM x ty ask -- GEORGE: Return the extended environment
 
 -- | Type check a program
-tcFcProgram :: FcProgram 'Fc -> FcM FcType
+tcFcProgram :: FcProgram a -> FcM FcType
 -- Type check a datatype declaration
 tcFcProgram (FcPgmDataDecl datadecl pgm) = do
   tcFcDataDecl datadecl
@@ -131,7 +131,7 @@ tcFcProgram (FcPgmValDecl valbind pgm) = do
 tcFcProgram (FcPgmTerm tm) = tcTerm tm
 
 -- | Type check a System F term
-tcTerm :: FcTerm 'Fc -> FcM FcType
+tcTerm :: FcTerm a -> FcM FcType
 tcTerm (FcTmAbs x ty1 tm) = do
   kind <- tcType ty1 -- GEORGE: Should have kind star
   unless (kind == KStar) $
@@ -192,7 +192,7 @@ tcType (FcTyApp ty1 ty2) = do
 tcType (FcTyCon tc) = lookupTyConKindM tc
 
 -- | Type check a list of case alternatives
-tcAlts :: FcType -> [FcAlt 'Fc] -> FcM FcType
+tcAlts :: FcType -> [FcAlt a] -> FcM FcType
 tcAlts scr_ty alts
   | null alts = throwError "Case alternatives are empty"
   | otherwise = do
@@ -201,7 +201,7 @@ tcAlts scr_ty alts
       let (ty:_) = rhs_tys
       return ty
 
-tcAlt :: FcType -> FcAlt 'Fc -> FcM FcType
+tcAlt :: FcType -> FcAlt a -> FcM FcType
 tcAlt scr_ty (FcAlt (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
   Just (tc, tys) -> do
     tmVarsNotInFcCtxM xs -- GEORGE: Ensure not bound already
@@ -226,7 +226,7 @@ ensureIdenticalTypes types = unless (go types) $ throwError "Type mismatch in ca
 
 -- GEORGE: Refine the type and also print more stuff out
 
-fcTypeCheck :: (AssocList FcTyCon FcTyConInfo, AssocList FcDataCon FcDataConInfo) -> UniqueSupply -> FcProgram 'Fc
+fcTypeCheck :: (AssocList FcTyCon FcTyConInfo, AssocList FcDataCon FcDataConInfo) -> UniqueSupply -> FcProgram a
             -> (Either String ((FcType, UniqueSupply), FcGblEnv), Trace)
 fcTypeCheck (tc_env, dc_env) us pgm = runWriter
                                     $ runExceptT

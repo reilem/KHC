@@ -5,7 +5,6 @@ module Main (main, runTest) where
 import Frontend.HsParser      (hsParse)
 import Frontend.HsRenamer     (hsRename)
 import Frontend.HsTypeChecker (hsTypeCheck)
-import Frontend.HsElaborator  (hsElaborate)
 import Backend.FcTypeChecker  (fcTypeCheck)
 
 import Utils.Unique  (newUniqueSupply)
@@ -32,10 +31,7 @@ runTest file = do
         (Right (((rn_pgm, _rn_ctx), us1), rn_env), _) ->
           case hsTypeCheck rn_env us1 rn_pgm of
             (Left err,_) -> throwMainError "typechecker" err
-            (Right ((((tc_pgm, tc_ty, theory), envs), us2), _tc_env), _) ->
-              case hsElaborate tc_pgm of
-                (Left err) -> throwMainError "elaborator" err
-                (Right fc_pgm) ->
+            (Right ((((fc_pgm, tc_ty, theory), envs), us2), _tc_env), _) ->
                   case fcTypeCheck envs us2 fc_pgm of
                     (Left err,_) -> throwMainError "System F typechecker" err
                     (Right ((fc_ty, _us3), _fc_env), _trace) -> do
