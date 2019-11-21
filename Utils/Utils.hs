@@ -18,3 +18,6 @@ distinct xs = nub xs == xs
 
 notImplemented :: String -> a
 notImplemented e = error ("Not Implemented: " ++ e)
+
+panic :: String -> a
+panic = error . (++) "Panic! Something went terribly wrong. "
