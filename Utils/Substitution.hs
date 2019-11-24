@@ -17,7 +17,7 @@ import Utils.Unique
 import Utils.Utils
 import Utils.PrettyPrint
 
-import Control.Monad (liftM2)
+import Control.Monad (liftM2, foldM)
 
 -- * The SubstVar Class
 -- ------------------------------------------------------------------------------
@@ -351,7 +351,24 @@ instance FreshenLclBndrs (FcTerm a) where
 
 -- | Freshen the (type + term) binders of a System F case alternative
 instance FreshenLclBndrs (FcAlt a) where
-  freshenLclBndrs (FcAlt (FcConPat dc xs) tm) = do
-    ys  <- mapM (\_ -> freshFcTmVar) xs
+  freshenLclBndrs (FcAlt p tm) = do
+    (p', xs, ys) <- freshenPatLclBndrs p
     tm' <- freshenLclBndrs $ foldl (\t (x,y) -> substVar x (FcTmVar y) t) tm (zipExact xs ys)
-    return (FcAlt (FcConPat dc ys) tm')
+    return (FcAlt p' tm')
+
+
+freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, [FcTmVar], [FcTmVar])
+freshenPatLclBndrs (FcConPat dc xs) = do
+  ys  <- mapM (\_ -> freshFcTmVar) xs
+  return (FcConPat dc ys, xs, ys)
+freshenPatLclBndrs (FcVarPat x) = do
+  y <- freshFcTmVar
+  return (FcVarPat y, [x], [y])
+freshenPatLclBndrs (FcConPatNs dc ps) = do
+  (ps', xs, ys) <- foldM freshenPattern ([], [], []) ps
+  return (FcConPatNs dc ps', xs, ys)
+  where
+    freshenPattern :: MonadUnique m => ([FcPat a], [FcTmVar], [FcTmVar]) -> FcPat a -> m ([FcPat a], [FcTmVar], [FcTmVar])
+    freshenPattern (ps', xs, ys) p = do
+      (p', xs', ys') <- freshenPatLclBndrs p
+      return (ps' ++ [p'], xs ++ xs', ys ++ ys')
