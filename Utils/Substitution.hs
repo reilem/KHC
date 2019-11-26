@@ -352,23 +352,23 @@ instance FreshenLclBndrs (FcTerm a) where
 -- | Freshen the (type + term) binders of a System F case alternative
 instance FreshenLclBndrs (FcAlt a) where
   freshenLclBndrs (FcAlt p tm) = do
-    (p', xs, ys) <- freshenPatLclBndrs p
-    tm' <- freshenLclBndrs $ foldl (\t (x,y) -> substVar x (FcTmVar y) t) tm (zipExact xs ys)
+    (p', subst) <- freshenPatLclBndrs p
+    tm' <- freshenLclBndrs (subst tm)
     return (FcAlt p' tm')
 
 
-freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, [FcTmVar], [FcTmVar])
+freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, FcTerm a -> FcTerm a)
 freshenPatLclBndrs (FcConPat dc xs) = do
   ys  <- mapM (\_ -> freshFcTmVar) xs
-  return (FcConPat dc ys, xs, ys)
+  return (FcConPat dc ys, foldr (.) id (map (\(x, y) -> substVar x (FcTmVar y)) (zipExact xs ys)))
 freshenPatLclBndrs (FcVarPat x) = do
   y <- freshFcTmVar
-  return (FcVarPat y, [x], [y])
+  return (FcVarPat y, substVar x (FcTmVar y))
 freshenPatLclBndrs (FcConPatNs dc ps) = do
-  (ps', xs, ys) <- foldM freshenPattern ([], [], []) ps
-  return (FcConPatNs dc ps', xs, ys)
+  (ps', subst) <- foldM freshenPat ([], id) ps
+  return (FcConPatNs dc ps', subst)
   where
-    freshenPattern :: MonadUnique m => ([FcPat a], [FcTmVar], [FcTmVar]) -> FcPat a -> m ([FcPat a], [FcTmVar], [FcTmVar])
-    freshenPattern (ps', xs, ys) p = do
-      (p', xs', ys') <- freshenPatLclBndrs p
-      return (ps' ++ [p'], xs ++ xs', ys ++ ys')
+    freshenPat :: MonadUnique m => ([FcPat a], FcTerm a -> FcTerm a) -> FcPat a -> m ([FcPat a], FcTerm a -> FcTerm a)
+    freshenPat (ps', subst) p = do
+      (p', subst') <- freshenPatLclBndrs p
+      return (ps' ++ [p'], subst . subst')
