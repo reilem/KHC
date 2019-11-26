@@ -268,14 +268,12 @@ pPatMain = chainl1 pPrimPat (pure PsdAppPat)
 
 -- Transform a parsed pattern into a haskell pattern
 pTransPat :: PsdPat -> Maybe PsPat
-pTransPat (PsdConPat dc)    = Just $ HsConPat dc []
-pTransPat (PsdVarPat x)     = Just $ HsVarPat x
+pTransPat (PsdConPat dc)    = return $ HsConPat dc []
+pTransPat (PsdVarPat x)     = return $ HsVarPat x
 pTransPat (PsdAppPat p1 p2) = do
-    p1' <- pTransPat p1
+    HsConPat dc xs <- pTransPat p1
     p2' <- pTransPat p2
-    case p1' of
-      HsConPat dc xs -> Just $ HsConPat dc (xs ++ [p2'])
-      _              -> Nothing
+    return $ HsConPat dc (xs ++ [p2'])
 
 -- | Parse a pattern
 pPat :: PsM PsPat

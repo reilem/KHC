@@ -226,7 +226,9 @@ dataConArityCheck :: PsDataCon -> [PsPat] -> RnM ()
 dataConArityCheck dc ps = do
   args <- lookupDataConArgs dc
   case length args == length ps of
-    False -> throwErrorRnM (text "DataCon" <+> ppr dc <+> text "passed wrong number of arguments in pattern - expected" <+> (int $ length args) <+> text "but received" <+> (int $ length ps))
+    False -> throwErrorRnM $ text "DataCon" <+> ppr dc
+      <+> text "passed wrong number of arguments in pattern - expected"
+      <+> (int $ length args) <+> text "but received" <+> (int $ length ps)
     _     -> return ()
 
 -- | Rename a type constructor
