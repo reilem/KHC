@@ -285,6 +285,12 @@ uniqueCons qs = nub [dc | ((FcConPatNs dc _):_, _) <- qs]
 arity :: FcDataCon -> FcM Int
 arity dc = length . fc_dc_arg_tys <$> lookupDataConInfoM dc
 
+getRealArgTys :: FcType -> [FcTyVar] -> [FcType] -> [FcType]
+getRealArgTys ty as arg_tys = case tyConAppMaybe ty of
+  Just (_, tys) -> let ty_subst = mconcat (zipWithExact (|->) as tys) in
+    map (substFcTyInTy ty_subst) arg_tys
+  Nothing       -> panic "getRealArgTys: not a type constructor application"
+
 -- | Match equations according to the variable rule
 matchVar :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
 matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
@@ -300,12 +306,14 @@ matchCon []     _  _   = panic "matchCon: empty variables"
 
 -- | Match an alternative clause
 matchClause :: FcDataCon -> [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcAlt 'Fc)
-matchClause dc (_:us) qs def = do
-  k           <- arity dc
-  us'         <- replicateM k makeVar
-  (_, tys, _) <- lookupDataConTyM dc
-  let mtch    = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
-  fc_rhs      <- extendCtxTmsM us' tys mtch
+matchClause dc (u:us) qs def = do
+  exp_ty       <- lookupTmVarM u
+  k            <- arity dc
+  us'          <- replicateM k makeVar
+  (as, tys, _) <- lookupDataConTyM dc
+  let real_tys = getRealArgTys exp_ty as tys
+  let mtch     = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
+  fc_rhs       <- extendCtxTmsM us' real_tys mtch
   return (FcAlt (FcConPat dc us') fc_rhs)
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
