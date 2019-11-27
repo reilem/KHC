@@ -163,15 +163,15 @@ fcTyConApp tc tys = fcTyApp (FcTyCon tc) tys
 data Phase = Tc | Fc
 
 data FcTerm (a :: Phase) where
-  FcTmAbs     :: FcTmVar -> FcType -> FcTerm a -> FcTerm a             -- ^ Term abstraction: lambda x : ty . tm
-  FcTmVar     :: FcTmVar -> FcTerm a                                   -- ^ Term variable
-  FcTmApp     :: FcTerm a -> FcTerm a -> FcTerm a                      -- ^ Term application
-  FcTmTyAbs   :: FcTyVar -> FcTerm a -> FcTerm a                       -- ^ Type abstraction: Lambda a . tm
-  FcTmTyApp   :: FcTerm a -> FcType -> FcTerm a                        -- ^ Type application
-  FcTmDataCon :: FcDataCon -> FcTerm a                                 -- ^ Data constructor
-  FcTmLet     :: FcTmVar -> FcType -> FcTerm a -> FcTerm a -> FcTerm a -- ^ Let binding: let x : ty = tm in tm
-  FcTmCase    :: FcTerm a -> [FcAlt a] -> FcTerm a                     -- ^ Case
-
+  FcTmAbs       :: FcTmVar -> FcType -> FcTerm a -> FcTerm a             -- ^ Term abstraction: lambda x : ty . tm
+  FcTmVar       :: FcTmVar -> FcTerm a                                   -- ^ Term variable
+  FcTmApp       :: FcTerm a -> FcTerm a -> FcTerm a                      -- ^ Term application
+  FcTmTyAbs     :: FcTyVar -> FcTerm a -> FcTerm a                       -- ^ Type abstraction: Lambda a . tm
+  FcTmTyApp     :: FcTerm a -> FcType -> FcTerm a                        -- ^ Type application
+  FcTmDataCon   :: FcDataCon -> FcTerm a                                 -- ^ Data constructor
+  FcTmLet       :: FcTmVar -> FcType -> FcTerm a -> FcTerm a -> FcTerm a -- ^ Let binding: let x : ty = tm in tm
+  FcTmCase      :: FcTerm 'Fc -> [FcAlt 'Fc] -> FcTerm 'Fc               -- ^ Case
+  FcTmCaseNs    :: FcTerm 'Tc -> [FcAlt 'Tc] -> FcTerm 'Tc               -- ^ Nested Case
 -- GEORGE: You should never need to make terms and patterns instances of Eq. If
 -- you do it means that something is probably wrong (the only setting where you
 -- need stuff like this is for optimizations).
@@ -253,6 +253,7 @@ instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmDataCon dc)       = []
   ftyvsOf (FcTmLet x ty tm1 tm2) = ftyvsOf ty ++ ftyvsOf tm1 ++ ftyvsOf tm2
   ftyvsOf (FcTmCase tm cs)       = ftyvsOf tm ++ ftyvsOf cs
+  ftyvsOf (FcTmCaseNs tm cs)     = ftyvsOf tm ++ ftyvsOf cs
 
 instance ContainsFreeTyVars (FcAlt a) FcTyVar where
   ftyvsOf (FcAlt pat tm) = ftyvsOf tm
@@ -318,11 +319,14 @@ instance PrettyPrint (FcTerm a) where
 
   ppr (FcTmCase tm cs)     = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
+  ppr (FcTmCaseNs tm cs)   = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
+                                  2 (vcat $ map ppr cs)
 
   needsParens (FcTmApp     {}) = True
   needsParens (FcTmTyApp   {}) = True
   needsParens (FcTmLet     {}) = True
   needsParens (FcTmCase    {}) = True
+  needsParens (FcTmCaseNs  {}) = True
   needsParens (FcTmAbs     {}) = True
   needsParens (FcTmVar     {}) = False
   needsParens (FcTmTyAbs   {}) = True

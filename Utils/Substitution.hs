@@ -93,6 +93,7 @@ instance SubstVar FcTyVar FcType (FcTerm a) where
     FcTmDataCon dc       -> FcTmDataCon dc
     FcTmLet x ty tm1 tm2 -> FcTmLet x (substVar a aty ty) (substVar a aty tm1) (substVar a aty tm2)
     FcTmCase tm cs       -> FcTmCase (substVar a aty tm) (map (substVar a aty) cs)
+    FcTmCaseNs tm cs     -> FcTmCaseNs (substVar a aty tm) (map (substVar a aty) cs)
 
 -- | Substitute a type variable for a type in a case alternative
 instance SubstVar FcTyVar FcType (FcAlt a) where
@@ -106,20 +107,21 @@ instance SubstVar FcTyVar FcType (FcAlt a) where
 instance SubstVar FcTmVar (FcTerm a) (FcTerm a) where
   substVar x xtm = \case
     FcTmVar y
-      | x == y      -> xtm
-      | otherwise   -> FcTmVar y
+      | x == y       -> xtm
+      | otherwise    -> FcTmVar y
     FcTmAbs y ty tm
-      | x == y      -> error "substFcTmVarInTm: Shadowing (tmabs)"
-      | otherwise   -> FcTmAbs y ty (substVar x xtm tm)
-    FcTmApp tm1 tm2 -> FcTmApp (substVar x xtm tm1) (substVar x xtm tm2)
+      | x == y       -> error "substFcTmVarInTm: Shadowing (tmabs)"
+      | otherwise    -> FcTmAbs y ty (substVar x xtm tm)
+    FcTmApp tm1 tm2  -> FcTmApp (substVar x xtm tm1) (substVar x xtm tm2)
 
-    FcTmTyAbs a tm  -> FcTmTyAbs a (substVar x xtm tm)
-    FcTmTyApp tm ty -> FcTmTyApp (substVar x xtm tm) ty
-    FcTmDataCon dc  -> FcTmDataCon dc
+    FcTmTyAbs a tm   -> FcTmTyAbs a (substVar x xtm tm)
+    FcTmTyApp tm ty  -> FcTmTyApp (substVar x xtm tm) ty
+    FcTmDataCon dc   -> FcTmDataCon dc
     FcTmLet y ty tm1 tm2
-      | x == y      -> error "substFcTmVarInTm: Shadowing (let)"
-      | otherwise   -> FcTmLet y ty (substVar x xtm tm1) (substVar x xtm tm2)
-    FcTmCase tm cs  -> FcTmCase (substVar x xtm tm) (map (substVar x xtm) cs)
+      | x == y       -> error "substFcTmVarInTm: Shadowing (let)"
+      | otherwise    -> FcTmLet y ty (substVar x xtm tm1) (substVar x xtm tm2)
+    FcTmCase tm cs   -> FcTmCase (substVar x xtm tm) (map (substVar x xtm) cs)
+    FcTmCaseNs tm cs -> FcTmCaseNs (substVar x xtm tm) (map (substVar x xtm) cs)
 
 -- | Substitute a term variable for a term in a case alternative
 instance SubstVar FcTmVar (FcTerm a) (FcAlt a) where
@@ -347,7 +349,8 @@ instance FreshenLclBndrs (FcTerm a) where
               <*> freshenLclBndrs (substVar x (FcTmVar y) tm1)
               <*> freshenLclBndrs (substVar x (FcTmVar y) tm2)
 
-  freshenLclBndrs (FcTmCase tm cs) = FcTmCase <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
+  freshenLclBndrs (FcTmCase tm cs)   = FcTmCase <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
+  freshenLclBndrs (FcTmCaseNs tm cs) = FcTmCaseNs <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
 
 -- | Freshen the (type + term) binders of a System F case alternative
 instance FreshenLclBndrs (FcAlt a) where
