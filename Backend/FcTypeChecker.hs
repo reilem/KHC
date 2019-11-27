@@ -188,12 +188,15 @@ tcTerm (FcTmCaseFc scr alts) = do
   (fc_alts, ty)    <- tcAlts scr_ty alts
   return (FcTmCaseFc fc_scr fc_alts, ty)
 tcTerm (FcTmCaseTc scr alts) = do
-  fc_scr <- fst <$> tcTerm scr
-  x      <- makeVar
-  def    <- defaultTerm
-  let qs = map altToEqn alts
-  dsgr   <- match [x] qs def
-  tcTerm (substVar x fc_scr dsgr)
+  (fc_scr, scr_ty) <- tcTerm scr
+  x                <- makeVar
+  def              <- defaultTerm
+  let qs           = map altToEqn alts
+  dsgr             <- extendCtxTmM x scr_ty (match [x] qs def)
+  -- throwErrorM $ text "Post desugar" <+> ppr dsgr
+  let subbed = substVar x fc_scr dsgr
+  -- throwErrorM $ text "Post sub" <+> ppr subbed
+  tcTerm subbed
 tcTerm (FcTmERROR s ty) = do
   kind <- tcType ty  -- GEORGE: Should have kind star
   unless (kind == KStar) $
@@ -298,10 +301,12 @@ matchCon []     _  _   = panic "matchCon: empty variables"
 -- | Match an alternative clause
 matchClause :: FcDataCon -> [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcAlt 'Fc)
 matchClause dc (_:us) qs def = do
-  k       <- arity dc
-  us'     <- replicateM k makeVar
-  fc_rhs  <- match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
-  return (FcAlt (FcConPat dc us) fc_rhs)
+  k           <- arity dc
+  us'         <- replicateM k makeVar
+  (_, tys, _) <- lookupDataConTyM dc
+  let mtch    = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
+  fc_rhs      <- extendCtxTmsM us' tys mtch
+  return (FcAlt (FcConPat dc us') fc_rhs)
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
 -- | Match a list of equations according to variable or constructor rule
