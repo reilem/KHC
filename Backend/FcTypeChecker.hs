@@ -285,7 +285,7 @@ arity dc = length . fc_dc_arg_tys <$> lookupDataConInfoM dc
 -- | Match equations according to the variable rule
 matchVar :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
 matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
-matchVar []     _  _   = throwErrorM $ text "matchVar: empty variables"
+matchVar []     _  _   = panic "matchVar: empty variables"
 
 -- | Match equations according to the constructor rule
 matchCon :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
@@ -293,7 +293,7 @@ matchCon (u:us) qs def = do
   let cs = uniqueCons qs
   alts   <- mapM (\c -> matchClause c (u:us) (choose c qs) def) cs
   return (FcTmCaseFc (FcTmVar u) alts)
-matchCon []     _  _   = throwErrorM $ text "matchCon: empty variables"
+matchCon []     _  _   = panic "matchCon: empty variables"
 
 -- | Match an alternative clause
 matchClause :: FcDataCon -> [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcAlt 'Fc)
@@ -302,19 +302,20 @@ matchClause dc (_:us) qs def = do
   us'     <- replicateM k makeVar
   fc_rhs  <- match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
   return (FcAlt (FcConPat dc us) fc_rhs)
-matchClause _   []    _  _   = throwErrorM $ text "matchClause: empty variables"
+matchClause _   []    _  _   = panic "matchClause: empty variables"
 
 -- | Match a list of equations according to variable or constructor rule
 matchVarCon :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
-matchVarCon us ((((FcConPatNs _ _):_), _):qs) def = matchCon us qs def
-matchVarCon us ((((FcVarPat _):_), _):qs)     def = matchVar us qs def
-matchVarCon _  _                              _   = panic "matchVarCon: Equation does not start with constructor or variable"
+matchVarCon us qs def = case head qs of
+  (((FcConPatNs _ _):_), _) -> matchCon us qs def
+  (((FcVarPat   _  ):_), _) -> matchVar us qs def
+  _                         -> panic "matchVarCon: invalid equations"
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
 match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
 match []     (q:_)  _   = fst <$> tcTerm (get_rhs q)
-match  _     _      _   = error "Error occured during match"
+match  _     _      _   = panic "match: invalid end case reached"
 
 -- | Ensure that all types are syntactically the same
 ensureIdenticalTypes :: [FcType] -> FcM ()
