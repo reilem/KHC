@@ -273,7 +273,7 @@ pTransPat (PsdVarPat x)     = return $ HsVarPat x
 pTransPat (PsdAppPat p1 p2) = do
     HsConPat dc xs <- pTransPat p1
     p2' <- pTransPat p2
-    return $ HsConPat dc (xs ++ [p2'])
+    return $ HsConPat dc (xs ++ [p2']) -- NOTE: this is O(n^2) because of the (++), could be O(n)
 
 -- | Parse a pattern
 pPat :: PsM PsPat

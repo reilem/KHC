@@ -363,7 +363,8 @@ instance FreshenLclBndrs (FcAlt a) where
 freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, FcTerm a -> FcTerm a)
 freshenPatLclBndrs (FcConPat dc xs) = do
   ys  <- mapM (\_ -> freshFcTmVar) xs
-  return (FcConPat dc ys, foldr (.) id (map (\(x, y) -> substVar x (FcTmVar y)) (zipExact xs ys)))
+  let subst = map (\(x, y) -> substVar x (FcTmVar y)) (zipExact xs ys)
+  return (FcConPat dc ys, foldr (.) id subst)
 freshenPatLclBndrs (FcVarPat x) = do
   y <- freshFcTmVar
   return (FcVarPat y, substVar x (FcTmVar y))
