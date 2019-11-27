@@ -21,3 +21,17 @@ notImplemented e = error ("Not Implemented: " ++ e)
 
 panic :: String -> a
 panic = error . (++) "Panic! Something went terribly wrong. "
+
+-- Add element to front of first list in the list of lists
+-- E.g. tack 1 [[2],[3,4]] = [[1,2],[3,4]]
+tack :: a -> [[a]] -> [[a]]
+tack x xs = (x : (head xs)) : (tail xs)
+
+-- Parition adjacent elements based on equality to return of given function
+-- E.g. partition odd [1,3,2,4,1] = [[1,3],[2,4],[1]]
+partition :: (Eq b) => (a -> b) -> [a] -> [[a]]
+partition _ []       = []
+partition _ [x]      = [[x]]
+partition f (x:y:xs)
+  | f x == f y = tack x (partition f (y : xs))
+  | otherwise  = [x] : partition f (y : xs)

@@ -25,6 +25,8 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Except
 
+import Data.Foldable (foldrM)
+
 -- * Type checking monad
 -- ----------------------------------------------------------------------------
 type FcM = UniqueSupplyT (ReaderT FcCtx (StateT FcGblEnv (ExceptT String (Writer Trace))))
@@ -184,7 +186,13 @@ tcTerm (FcTmCaseFc scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   (fc_alts, ty)    <- tcAlts scr_ty alts
   return (FcTmCaseFc fc_scr fc_alts, ty)
-tcTerm (FcTmCaseTc _ _) = notImplemented "FcTypeChecker tcTerm FcTmCaseTc"
+tcTerm (FcTmCaseTc scr alts) = do
+  fc_scr <- fst <$> tcTerm scr
+  x      <- makeVar
+  def    <- defaultTerm
+  let qs = map altToEqn alts
+  dsgr   <- match [x] qs def
+  tcTerm (substVar x fc_scr dsgr)
 tcTerm (FcTmERROR s ty) = do
   kind <- tcType ty  -- GEORGE: Should have kind star
   unless (kind == KStar) $
@@ -230,6 +238,89 @@ tcAlt scr_ty (FcAlt (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
     (fc_rhs, ty)     <- extendCtxTmsM xs real_arg_tys (tcTerm rhs)
     return (FcAlt (FcConPat dc xs) fc_rhs, ty)
   Nothing -> throwErrorM (text "destructScrTy" <+> colon <+> text "Not a tycon application")
+
+-- * Pattern desugaring
+-- ---------------------------------------------
+
+type PmEqn = ([FcPat 'Tc], FcTerm 'Tc)
+
+get_rhs :: PmEqn -> FcTerm 'Tc
+get_rhs = snd
+
+altToEqn :: FcAlt 'Tc -> PmEqn
+altToEqn (FcAlt p t) = ([p], t)
+
+defaultTerm :: FcM (FcTerm 'Fc)
+defaultTerm = FcTmVar <$> freshFcTmVar
+
+-- | Check if first pattern of equation contains a variable
+isVar :: PmEqn -> Bool
+isVar (((FcVarPat _):_), _) = True
+isVar _                     = False
+
+-- | Check if first pattern of equation contains a constructor
+isCon :: PmEqn -> Bool
+isCon (((FcConPatNs _ _):_), _) = True
+isCon _                         = False
+
+-- | Get the constructor from an alternative equation
+getCon :: PmEqn -> Maybe FcDataCon
+getCon (((FcConPatNs c _):_), _) = Just c
+getCon _                         = Nothing
+
+-- | Generate fresh renamed variable
+makeVar :: FcM FcTmVar
+makeVar = freshFcTmVar
+
+-- Choose all equations that start with the given data constructor
+choose :: FcDataCon -> [PmEqn] -> [PmEqn]
+choose c qs = [q | q <- qs, (getCon q) == Just c]
+
+-- Get list of unique constructors in the given list of equation
+constructors :: [PmEqn] -> [FcDataCon]
+constructors = foldr extractUniqueCs []
+  where
+    extractUniqueCs :: PmEqn -> [FcDataCon] -> [FcDataCon]
+    extractUniqueCs ((FcConPatNs cs _):_, _) acc
+      | elem cs acc       = acc
+      | otherwise         = (cs : acc)
+    extractUniqueCs _ acc = acc
+
+-- Get ariry of data constructor
+arity :: FcDataCon -> FcM Int
+arity dc = length . fc_dc_arg_tys <$> lookupDataConInfoM dc
+
+matchVar :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
+matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
+matchVar []     _  _   = throwErrorM $ text "matchVar: empty variables"
+
+matchCon :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
+matchCon (u:us) qs def = do
+  let cs = constructors qs
+  alts   <- mapM (\c -> matchClause c (u:us) (choose c qs) def) cs
+  return (FcTmCaseFc (FcTmVar u) alts)
+matchCon []     _  _   = throwErrorM $ text "matchCon: empty variables"
+
+matchClause :: FcDataCon -> [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcAlt 'Fc)
+matchClause dc (_:us) qs def = do
+  k       <- arity dc
+  us'     <- replicateM k makeVar
+  fc_rhs  <- match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
+  return (FcAlt (FcConPat dc us) fc_rhs)
+matchClause _   []    _  _   = throwErrorM $ text "matchClause: empty variables"
+
+matchVarCon :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
+matchVarCon us qs def
+  | isVar $ head qs = matchVar us qs def
+  | isCon $ head qs = matchCon us qs def
+  | otherwise       = throwErrorM $ text "Equation does not start with constructor or variable"
+
+match :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
+match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (partition isVar qs)
+match []     (q:_)  _ = do
+  (tc_tm, _) <- tcTerm $ get_rhs q
+  return tc_tm
+match  _     _      _   = error "Error occured during match"
 
 -- | Ensure that all types are syntactically the same
 ensureIdenticalTypes :: [FcType] -> FcM ()
