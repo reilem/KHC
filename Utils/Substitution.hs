@@ -92,8 +92,8 @@ instance SubstVar FcTyVar FcType (FcTerm a) where
     FcTmTyApp tm ty      -> FcTmTyApp (substVar a aty tm) (substVar a aty ty)
     FcTmDataCon dc       -> FcTmDataCon dc
     FcTmLet x ty tm1 tm2 -> FcTmLet x (substVar a aty ty) (substVar a aty tm1) (substVar a aty tm2)
-    FcTmCase tm cs       -> FcTmCase (substVar a aty tm) (map (substVar a aty) cs)
-    FcTmCaseNs tm cs     -> FcTmCaseNs (substVar a aty tm) (map (substVar a aty) cs)
+    FcTmCaseFc tm cs       -> FcTmCaseFc (substVar a aty tm) (map (substVar a aty) cs)
+    FcTmCaseTc tm cs     -> FcTmCaseTc (substVar a aty tm) (map (substVar a aty) cs)
 
 -- | Substitute a type variable for a type in a case alternative
 instance SubstVar FcTyVar FcType (FcAlt a) where
@@ -120,8 +120,8 @@ instance SubstVar FcTmVar (FcTerm a) (FcTerm a) where
     FcTmLet y ty tm1 tm2
       | x == y       -> error "substFcTmVarInTm: Shadowing (let)"
       | otherwise    -> FcTmLet y ty (substVar x xtm tm1) (substVar x xtm tm2)
-    FcTmCase tm cs   -> FcTmCase (substVar x xtm tm) (map (substVar x xtm) cs)
-    FcTmCaseNs tm cs -> FcTmCaseNs (substVar x xtm tm) (map (substVar x xtm) cs)
+    FcTmCaseFc tm cs   -> FcTmCaseFc (substVar x xtm tm) (map (substVar x xtm) cs)
+    FcTmCaseTc tm cs -> FcTmCaseTc (substVar x xtm tm) (map (substVar x xtm) cs)
 
 -- | Substitute a term variable for a term in a case alternative
 instance SubstVar FcTmVar (FcTerm a) (FcAlt a) where
@@ -349,8 +349,8 @@ instance FreshenLclBndrs (FcTerm a) where
               <*> freshenLclBndrs (substVar x (FcTmVar y) tm1)
               <*> freshenLclBndrs (substVar x (FcTmVar y) tm2)
 
-  freshenLclBndrs (FcTmCase tm cs)   = FcTmCase <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
-  freshenLclBndrs (FcTmCaseNs tm cs) = FcTmCaseNs <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
+  freshenLclBndrs (FcTmCaseFc tm cs)   = FcTmCaseFc <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
+  freshenLclBndrs (FcTmCaseTc tm cs) = FcTmCaseTc <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
 
 -- | Freshen the (type + term) binders of a System F case alternative
 instance FreshenLclBndrs (FcAlt a) where

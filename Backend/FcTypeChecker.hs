@@ -180,11 +180,11 @@ tcTerm (FcTmLet x ty tm1 tm2) = do
   unless (ty `eqFcTypes` ty1) $ throwError "Let type doesnt match"
   (fc_tm2, ty2)   <- extendCtxTmM x ty (tcTerm tm2)
   return (FcTmLet x ty fc_tm1 fc_tm2, ty2)
-tcTerm (FcTmCase scr alts) = do
+tcTerm (FcTmCaseFc scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   (fc_alts, ty)    <- tcAlts scr_ty alts
-  return (FcTmCase fc_scr fc_alts, ty)
-tcTerm (FcTmCaseNs _ _) = notImplemented "FcTypeChecker tcTerm FcTmCaseNs"
+  return (FcTmCaseFc fc_scr fc_alts, ty)
+tcTerm (FcTmCaseTc _ _) = notImplemented "FcTypeChecker tcTerm FcTmCaseTc"
 
 -- | Kind check a type
 tcType :: FcType -> FcM Kind

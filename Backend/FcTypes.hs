@@ -170,8 +170,8 @@ data FcTerm (a :: Phase) where
   FcTmTyApp     :: FcTerm a -> FcType -> FcTerm a                        -- ^ Type application
   FcTmDataCon   :: FcDataCon -> FcTerm a                                 -- ^ Data constructor
   FcTmLet       :: FcTmVar -> FcType -> FcTerm a -> FcTerm a -> FcTerm a -- ^ Let binding: let x : ty = tm in tm
-  FcTmCase      :: FcTerm 'Fc -> [FcAlt 'Fc] -> FcTerm 'Fc               -- ^ Case
-  FcTmCaseNs    :: FcTerm 'Tc -> [FcAlt 'Tc] -> FcTerm 'Tc               -- ^ Nested Case
+  FcTmCaseFc      :: FcTerm 'Fc -> [FcAlt 'Fc] -> FcTerm 'Fc               -- ^ Case
+  FcTmCaseTc    :: FcTerm 'Tc -> [FcAlt 'Tc] -> FcTerm 'Tc               -- ^ Nested Case
 -- GEORGE: You should never need to make terms and patterns instances of Eq. If
 -- you do it means that something is probably wrong (the only setting where you
 -- need stuff like this is for optimizations).
@@ -252,8 +252,8 @@ instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmTyApp tm ty)      = ftyvsOf tm ++ ftyvsOf ty
   ftyvsOf (FcTmDataCon dc)       = []
   ftyvsOf (FcTmLet x ty tm1 tm2) = ftyvsOf ty ++ ftyvsOf tm1 ++ ftyvsOf tm2
-  ftyvsOf (FcTmCase tm cs)       = ftyvsOf tm ++ ftyvsOf cs
-  ftyvsOf (FcTmCaseNs tm cs)     = ftyvsOf tm ++ ftyvsOf cs
+  ftyvsOf (FcTmCaseFc tm cs)       = ftyvsOf tm ++ ftyvsOf cs
+  ftyvsOf (FcTmCaseTc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
 
 instance ContainsFreeTyVars (FcAlt a) FcTyVar where
   ftyvsOf (FcAlt pat tm) = ftyvsOf tm
@@ -317,16 +317,16 @@ instance PrettyPrint (FcTerm a) where
     =  (colorDoc yellow (text "let") <+> ppr x <+> ((colon <+> ppr ty) $$ (equals <+> ppr tm1)))
     $$ (colorDoc yellow (text "in" ) <+> ppr tm2)
 
-  ppr (FcTmCase tm cs)     = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
+  ppr (FcTmCaseFc tm cs)     = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
-  ppr (FcTmCaseNs tm cs)   = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
+  ppr (FcTmCaseTc tm cs)   = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
 
   needsParens (FcTmApp     {}) = True
   needsParens (FcTmTyApp   {}) = True
   needsParens (FcTmLet     {}) = True
-  needsParens (FcTmCase    {}) = True
-  needsParens (FcTmCaseNs  {}) = True
+  needsParens (FcTmCaseFc    {}) = True
+  needsParens (FcTmCaseTc  {}) = True
   needsParens (FcTmAbs     {}) = True
   needsParens (FcTmVar     {}) = False
   needsParens (FcTmTyAbs   {}) = True
