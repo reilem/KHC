@@ -306,10 +306,9 @@ matchClause _   []    _  _   = panic "matchClause: empty variables"
 
 -- | Match a list of equations according to variable or constructor rule
 matchVarCon :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
-matchVarCon us qs def = case head qs of
-  (((FcConPatNs _ _):_), _) -> matchCon us qs def
-  (((FcVarPat   _  ):_), _) -> matchVar us qs def
-  _                         -> panic "matchVarCon: invalid equations"
+matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
+matchVarCon us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
+matchVarCon _  _                                _   = panic "matchVarCon: invalid equations"
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
