@@ -184,6 +184,7 @@ tcTerm (FcTmCase scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   (fc_alts, ty)    <- tcAlts scr_ty alts
   return (FcTmCase fc_scr fc_alts, ty)
+tcTerm (FcTmCaseNs _ _) = notImplemented "FcTypeChecker tcTerm FcTmCaseNs"
 
 -- | Kind check a type
 tcType :: FcType -> FcM Kind
@@ -203,7 +204,7 @@ tcType (FcTyApp ty1 ty2) = do
 tcType (FcTyCon tc) = lookupTyConKindM tc
 
 -- | Type check a list of case alternatives
-tcAlts :: FcType -> [FcAlt a] -> FcM ([FcAlt 'Fc], FcType)
+tcAlts :: FcType -> [FcAlt 'Fc] -> FcM ([FcAlt 'Fc], FcType)
 tcAlts scr_ty alts
   | null alts = throwError "Case alternatives are empty"
   | otherwise = do
@@ -212,7 +213,7 @@ tcAlts scr_ty alts
       let (ty:_) = rhs_tys
       return (fc_alts, ty)
 
-tcAlt :: FcType -> FcAlt a -> FcM (FcAlt 'Fc, FcType)
+tcAlt :: FcType -> FcAlt 'Fc -> FcM (FcAlt 'Fc, FcType)
 tcAlt scr_ty (FcAlt (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
   Just (tc, tys) -> do
     tmVarsNotInFcCtxM xs -- GEORGE: Ensure not bound already
