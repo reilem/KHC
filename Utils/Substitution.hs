@@ -17,7 +17,7 @@ import Utils.Unique
 import Utils.Utils
 import Utils.PrettyPrint
 
-import Control.Monad (liftM2)
+import Control.Monad (liftM2, foldM)
 
 -- * The SubstVar Class
 -- ------------------------------------------------------------------------------
@@ -92,7 +92,8 @@ instance SubstVar FcTyVar FcType (FcTerm a) where
     FcTmTyApp tm ty      -> FcTmTyApp (substVar a aty tm) (substVar a aty ty)
     FcTmDataCon dc       -> FcTmDataCon dc
     FcTmLet x ty tm1 tm2 -> FcTmLet x (substVar a aty ty) (substVar a aty tm1) (substVar a aty tm2)
-    FcTmCase tm cs       -> FcTmCase (substVar a aty tm) (map (substVar a aty) cs)
+    FcTmCaseFc tm cs       -> FcTmCaseFc (substVar a aty tm) (map (substVar a aty) cs)
+    FcTmCaseTc tm cs     -> FcTmCaseTc (substVar a aty tm) (map (substVar a aty) cs)
 
 -- | Substitute a type variable for a type in a case alternative
 instance SubstVar FcTyVar FcType (FcAlt a) where
@@ -106,27 +107,36 @@ instance SubstVar FcTyVar FcType (FcAlt a) where
 instance SubstVar FcTmVar (FcTerm a) (FcTerm a) where
   substVar x xtm = \case
     FcTmVar y
-      | x == y      -> xtm
-      | otherwise   -> FcTmVar y
+      | x == y       -> xtm
+      | otherwise    -> FcTmVar y
     FcTmAbs y ty tm
-      | x == y      -> error "substFcTmVarInTm: Shadowing (tmabs)"
-      | otherwise   -> FcTmAbs y ty (substVar x xtm tm)
-    FcTmApp tm1 tm2 -> FcTmApp (substVar x xtm tm1) (substVar x xtm tm2)
+      | x == y       -> error "substFcTmVarInTm: Shadowing (tmabs)"
+      | otherwise    -> FcTmAbs y ty (substVar x xtm tm)
+    FcTmApp tm1 tm2  -> FcTmApp (substVar x xtm tm1) (substVar x xtm tm2)
 
-    FcTmTyAbs a tm  -> FcTmTyAbs a (substVar x xtm tm)
-    FcTmTyApp tm ty -> FcTmTyApp (substVar x xtm tm) ty
-    FcTmDataCon dc  -> FcTmDataCon dc
+    FcTmTyAbs a tm   -> FcTmTyAbs a (substVar x xtm tm)
+    FcTmTyApp tm ty  -> FcTmTyApp (substVar x xtm tm) ty
+    FcTmDataCon dc   -> FcTmDataCon dc
     FcTmLet y ty tm1 tm2
-      | x == y      -> error "substFcTmVarInTm: Shadowing (let)"
-      | otherwise   -> FcTmLet y ty (substVar x xtm tm1) (substVar x xtm tm2)
-    FcTmCase tm cs  -> FcTmCase (substVar x xtm tm) (map (substVar x xtm) cs)
+      | x == y       -> error "substFcTmVarInTm: Shadowing (let)"
+      | otherwise    -> FcTmLet y ty (substVar x xtm tm1) (substVar x xtm tm2)
+    FcTmCaseFc tm cs   -> FcTmCaseFc (substVar x xtm tm) (map (substVar x xtm) cs)
+    FcTmCaseTc tm cs -> FcTmCaseTc (substVar x xtm tm) (map (substVar x xtm) cs)
 
 -- | Substitute a term variable for a term in a case alternative
 instance SubstVar FcTmVar (FcTerm a) (FcAlt a) where
-  substVar x xtm (FcAlt (FcConPat dc xs) tm)
+  substVar x xtm (FcAlt p tm) = FcAlt (substVar x xtm p) (substVar x xtm tm)
+
+-- | Substitute a term variable for a term in a pattern
+instance SubstVar FcTmVar (FcTerm a) (FcPat a) where
+  substVar x _ (FcConPat dc xs)
     | not (distinct xs) = error "substFcTmVarInAlt: Variables in pattern are not distinct" -- extra redundancy for safety
-    | any (==x) xs      = error "substFcTmVarInAlt: Shadowing"
-    | otherwise         = FcAlt (FcConPat dc xs) (substVar x xtm tm)
+    | any (==x) xs      = error "substFcTmVarInPat: Shadowing"
+    | otherwise         = (FcConPat dc xs)
+  substVar x _ (FcVarPat y)
+    | x == y            = error "substFcTmVarInPat: Shadowing" -- extra redundancy for safety
+    | otherwise         = (FcVarPat y)
+  substVar x xtm (FcConPatNs dc ps) = FcConPatNs dc (substVar x xtm ps)
 
 -- ------------------------------------------------------------------------------
 
@@ -339,11 +349,30 @@ instance FreshenLclBndrs (FcTerm a) where
               <*> freshenLclBndrs (substVar x (FcTmVar y) tm1)
               <*> freshenLclBndrs (substVar x (FcTmVar y) tm2)
 
-  freshenLclBndrs (FcTmCase tm cs) = FcTmCase <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
+  freshenLclBndrs (FcTmCaseFc tm cs)   = FcTmCaseFc <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
+  freshenLclBndrs (FcTmCaseTc tm cs) = FcTmCaseTc <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
 
 -- | Freshen the (type + term) binders of a System F case alternative
 instance FreshenLclBndrs (FcAlt a) where
-  freshenLclBndrs (FcAlt (FcConPat dc xs) tm) = do
-    ys  <- mapM (\_ -> freshFcTmVar) xs
-    tm' <- freshenLclBndrs $ foldl (\t (x,y) -> substVar x (FcTmVar y) t) tm (zipExact xs ys)
-    return (FcAlt (FcConPat dc ys) tm')
+  freshenLclBndrs (FcAlt p tm) = do
+    (p', subst) <- freshenPatLclBndrs p
+    tm' <- freshenLclBndrs (subst tm)
+    return (FcAlt p' tm')
+
+
+freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, FcTerm a -> FcTerm a)
+freshenPatLclBndrs (FcConPat dc xs) = do
+  ys  <- mapM (\_ -> freshFcTmVar) xs
+  let subst = map (\(x, y) -> substVar x (FcTmVar y)) (zipExact xs ys)
+  return (FcConPat dc ys, foldr (.) id subst)
+freshenPatLclBndrs (FcVarPat x) = do
+  y <- freshFcTmVar
+  return (FcVarPat y, substVar x (FcTmVar y))
+freshenPatLclBndrs (FcConPatNs dc ps) = do
+  (ps', subst) <- foldM freshenPat ([], id) ps
+  return (FcConPatNs dc ps', subst)
+  where
+    freshenPat :: MonadUnique m => ([FcPat a], FcTerm a -> FcTerm a) -> FcPat a -> m ([FcPat a], FcTerm a -> FcTerm a)
+    freshenPat (ps', subst) p = do
+      (p', subst') <- freshenPatLclBndrs p
+      return (ps' ++ [p'], subst . subst')
