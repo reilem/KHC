@@ -26,6 +26,7 @@ import Control.Monad.State
 import Control.Monad.Except
 
 import Data.Foldable (foldrM)
+import Data.List (nub)
 
 -- * Type checking monad
 -- ----------------------------------------------------------------------------
@@ -244,12 +245,15 @@ tcAlt scr_ty (FcAlt (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
 
 type PmEqn = ([FcPat 'Tc], FcTerm 'Tc)
 
+-- | Get right hand side of an equation
 get_rhs :: PmEqn -> FcTerm 'Tc
 get_rhs = snd
 
+-- | Convert an Alt to an equation
 altToEqn :: FcAlt 'Tc -> PmEqn
 altToEqn (FcAlt p t) = ([p], t)
 
+-- | Create a default term
 defaultTerm :: FcM (FcTerm 'Fc)
 defaultTerm = FcTmVar <$> freshFcTmVar
 
@@ -258,15 +262,9 @@ isVar :: PmEqn -> Bool
 isVar (((FcVarPat _):_), _) = True
 isVar _                     = False
 
--- | Check if first pattern of equation contains a constructor
-isCon :: PmEqn -> Bool
-isCon (((FcConPatNs _ _):_), _) = True
-isCon _                         = False
-
--- | Get the constructor from an alternative equation
-getCon :: PmEqn -> Maybe FcDataCon
-getCon (((FcConPatNs c _):_), _) = Just c
-getCon _                         = Nothing
+-- | Group the equations based on if they start with a variable or constructor
+groupEqns :: [PmEqn] -> [[PmEqn]]
+groupEqns = partition isVar
 
 -- | Generate fresh renamed variable
 makeVar :: FcM FcTmVar
@@ -274,33 +272,30 @@ makeVar = freshFcTmVar
 
 -- Choose all equations that start with the given data constructor
 choose :: FcDataCon -> [PmEqn] -> [PmEqn]
-choose c qs = [q | q <- qs, (getCon q) == Just c]
+choose c qs = [q | q@(((FcConPatNs c' _):_), _) <- qs, c == c']
 
 -- Get list of unique constructors in the given list of equation
-constructors :: [PmEqn] -> [FcDataCon]
-constructors = foldr extractUniqueCs []
-  where
-    extractUniqueCs :: PmEqn -> [FcDataCon] -> [FcDataCon]
-    extractUniqueCs ((FcConPatNs cs _):_, _) acc
-      | elem cs acc       = acc
-      | otherwise         = (cs : acc)
-    extractUniqueCs _ acc = acc
+uniqueCons :: [PmEqn] -> [FcDataCon]
+uniqueCons qs = nub [dc | ((FcConPatNs dc _):_, _) <- qs]
 
 -- Get ariry of data constructor
 arity :: FcDataCon -> FcM Int
 arity dc = length . fc_dc_arg_tys <$> lookupDataConInfoM dc
 
+-- | Match equations according to the variable rule
 matchVar :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
 matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
 matchVar []     _  _   = throwErrorM $ text "matchVar: empty variables"
 
+-- | Match equations according to the constructor rule
 matchCon :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
 matchCon (u:us) qs def = do
-  let cs = constructors qs
+  let cs = uniqueCons qs
   alts   <- mapM (\c -> matchClause c (u:us) (choose c qs) def) cs
   return (FcTmCaseFc (FcTmVar u) alts)
 matchCon []     _  _   = throwErrorM $ text "matchCon: empty variables"
 
+-- | Match an alternative clause
 matchClause :: FcDataCon -> [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcAlt 'Fc)
 matchClause dc (_:us) qs def = do
   k       <- arity dc
@@ -309,17 +304,16 @@ matchClause dc (_:us) qs def = do
   return (FcAlt (FcConPat dc us) fc_rhs)
 matchClause _   []    _  _   = throwErrorM $ text "matchClause: empty variables"
 
+-- | Match a list of equations according to variable or constructor rule
 matchVarCon :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
-matchVarCon us qs def
-  | isVar $ head qs = matchVar us qs def
-  | isCon $ head qs = matchCon us qs def
-  | otherwise       = throwErrorM $ text "Equation does not start with constructor or variable"
+matchVarCon us ((((FcConPatNs _ _):_), _):qs) def = matchCon us qs def
+matchVarCon us ((((FcVarPat _):_), _):qs)     def = matchVar us qs def
+matchVarCon _  _                              _   = panic "matchVarCon: Equation does not start with constructor or variable"
 
+-- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
-match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (partition isVar qs)
-match []     (q:_)  _ = do
-  (tc_tm, _) <- tcTerm $ get_rhs q
-  return tc_tm
+match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
+match []     (q:_)  _   = fst <$> tcTerm (get_rhs q)
 match  _     _      _   = error "Error occured during match"
 
 -- | Ensure that all types are syntactically the same
