@@ -313,7 +313,7 @@ matchClause dc (u:us) qs def = do
   (as, tys, _) <- lookupDataConTyM dc
   let real_tys = getRealArgTys exp_ty as tys
   let mtch     = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
-  fc_rhs       <- extendCtxTmsM us' real_tys mtch
+  fc_rhs       <- extendCtxTmsM us' real_tys mtch -- REINERT: george doesn't like this binding variables.
   return (FcAlt (FcConPat dc us') fc_rhs)
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
