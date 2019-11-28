@@ -172,6 +172,7 @@ data FcTerm (a :: Phase) where
   FcTmLet       :: FcTmVar -> FcType -> FcTerm a -> FcTerm a -> FcTerm a -- ^ Let binding: let x : ty = tm in tm
   FcTmCaseFc      :: FcTerm 'Fc -> [FcAlt 'Fc] -> FcTerm 'Fc               -- ^ Case
   FcTmCaseTc    :: FcTerm 'Tc -> [FcAlt 'Tc] -> FcTerm 'Tc               -- ^ Nested Case
+  FcTmERROR     :: String -> FcType -> FcTerm a                          -- ^ Hard-wired error call
 -- GEORGE: You should never need to make terms and patterns instances of Eq. If
 -- you do it means that something is probably wrong (the only setting where you
 -- need stuff like this is for optimizations).
@@ -254,6 +255,7 @@ instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmLet _ ty tm1 tm2) = ftyvsOf ty ++ ftyvsOf tm1 ++ ftyvsOf tm2
   ftyvsOf (FcTmCaseFc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
   ftyvsOf (FcTmCaseTc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
+  ftyvsOf (FcTmERROR _err ty)    = ftyvsOf ty
 
 instance ContainsFreeTyVars (FcAlt a) FcTyVar where
   ftyvsOf (FcAlt _pat tm) = ftyvsOf tm
@@ -321,6 +323,7 @@ instance PrettyPrint (FcTerm a) where
                                   2 (vcat $ map ppr cs)
   ppr (FcTmCaseTc tm cs)   = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
+  ppr (FcTmERROR s _ty)    = text "ERROR" <+> doubleQuotes (text s)
 
   needsParens (FcTmApp     {}) = True
   needsParens (FcTmTyApp   {}) = True
@@ -331,6 +334,7 @@ instance PrettyPrint (FcTerm a) where
   needsParens (FcTmVar     {}) = False
   needsParens (FcTmTyAbs   {}) = True
   needsParens (FcTmDataCon {}) = False
+  needsParens (FcTmERROR   {}) = True
 
 -- | Pretty print patterns
 instance PrettyPrint (FcPat a) where

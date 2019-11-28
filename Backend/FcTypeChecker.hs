@@ -185,6 +185,11 @@ tcTerm (FcTmCaseFc scr alts) = do
   (fc_alts, ty)    <- tcAlts scr_ty alts
   return (FcTmCaseFc fc_scr fc_alts, ty)
 tcTerm (FcTmCaseTc _ _) = notImplemented "FcTypeChecker tcTerm FcTmCaseTc"
+tcTerm (FcTmERROR s ty) = do
+  kind <- tcType ty  -- GEORGE: Should have kind star
+  unless (kind == KStar) $
+    throwError "tcTerm: Kind mismatch (FcTmERROR)"
+  return (FcTmERROR s ty, ty)
 
 -- | Kind check a type
 tcType :: FcType -> FcM Kind
