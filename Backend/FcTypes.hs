@@ -242,21 +242,21 @@ instance ContainsFreeTyVars FcType FcTyVar where
   ftyvsOf (FcTyVar a)       = [a]
   ftyvsOf (FcTyAbs a ty)    = ftyvsOf ty \\ [a]
   ftyvsOf (FcTyApp ty1 ty2) = ftyvsOf ty1 ++ ftyvsOf ty2
-  ftyvsOf (FcTyCon tc)      = []
+  ftyvsOf (FcTyCon _tc)     = []
 
 instance ContainsFreeTyVars (FcTerm a) FcTyVar where
-  ftyvsOf (FcTmAbs x ty tm)      = ftyvsOf ty ++ ftyvsOf tm
-  ftyvsOf (FcTmVar x)            = []
+  ftyvsOf (FcTmAbs _ ty tm)      = ftyvsOf ty ++ ftyvsOf tm
+  ftyvsOf (FcTmVar{})            = []
   ftyvsOf (FcTmApp tm1 tm2)      = ftyvsOf tm1 ++ ftyvsOf tm2
   ftyvsOf (FcTmTyAbs a tm)       = ftyvsOf tm \\ [a]
   ftyvsOf (FcTmTyApp tm ty)      = ftyvsOf tm ++ ftyvsOf ty
-  ftyvsOf (FcTmDataCon dc)       = []
-  ftyvsOf (FcTmLet x ty tm1 tm2) = ftyvsOf ty ++ ftyvsOf tm1 ++ ftyvsOf tm2
-  ftyvsOf (FcTmCaseFc tm cs)       = ftyvsOf tm ++ ftyvsOf cs
+  ftyvsOf (FcTmDataCon{})        = []
+  ftyvsOf (FcTmLet _ ty tm1 tm2) = ftyvsOf ty ++ ftyvsOf tm1 ++ ftyvsOf tm2
+  ftyvsOf (FcTmCaseFc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
   ftyvsOf (FcTmCaseTc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
 
 instance ContainsFreeTyVars (FcAlt a) FcTyVar where
-  ftyvsOf (FcAlt pat tm) = ftyvsOf tm
+  ftyvsOf (FcAlt _pat tm) = ftyvsOf tm
 
 -- * Pretty printing
 -- ----------------------------------------------------------------------------
@@ -334,12 +334,12 @@ instance PrettyPrint (FcTerm a) where
 
 -- | Pretty print patterns
 instance PrettyPrint (FcPat a) where
-  ppr (FcConPat   dc xs)         = ppr dc <+> hsep (map ppr xs)
-  ppr (FcConPatNs dc ps)         = ppr dc <+> hsep (map ppr ps)
-  ppr (FcVarPat   x)             = ppr x
-  needsParens (FcVarPat   _)     = False
-  needsParens (FcConPat   dx xs) = length xs > 0
-  needsParens (FcConPatNs dx ps) = length ps > 0
+  ppr (FcConPat   dc xs)          = ppr dc <+> hsep (map ppr xs)
+  ppr (FcConPatNs dc ps)          = ppr dc <+> hsep (map ppr ps)
+  ppr (FcVarPat   x)              = ppr x
+  needsParens (FcVarPat   _)      = False
+  needsParens (FcConPat   _dx xs) = length xs > 0
+  needsParens (FcConPatNs _dx ps) = length ps > 0
 
 -- | Pretty print case alternatives
 instance PrettyPrint (FcAlt a) where
