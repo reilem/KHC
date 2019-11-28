@@ -83,7 +83,6 @@ instance Eq a => Eq (HsTmVar a) where
 instance Eq a => Eq (HsTyVar a) where
   (PsTyVar a  ) == (PsTyVar b  ) = (a == b)
   (RnTyVar a _) == (RnTyVar b _) = (a == b)
-  _ == _ = error "We need >= GHC 8.0 to avoid this.."
 
 -- | Parsed term and type variables
 type PsTmVar = HsTmVar Sym
@@ -167,7 +166,6 @@ instance Uniquable FcTyVar where
 -- | Convert a source renamed variable to a System F variable
 rnTyVarToFcTyVar :: HsTyVar Name -> FcTyVar
 rnTyVarToFcTyVar (RnTyVar name kind) = FcTyVar name kind
-rnTyVarToFcTyVar _ {- PsTyVar {} -}  = error "We need GHC 8.0"
 
 -- | Convert a source renamed term variable to a System F type variable
 rnTmVarToFcTmVar :: HsTmVar Name -> FcTmVar
@@ -212,7 +210,6 @@ instance Named (HsTmVar Name) where
 
 instance Named (HsTyVar Name) where
   nameOf (RnTyVar name _kind) = name
-  nameOf _ {- PsTyVar {} -}   = error "We need GHC 8.0"
 
 instance Named FcTmVar where
   nameOf = fctmvar_name
@@ -225,7 +222,6 @@ instance Named FcTyVar where
 
 instance Kinded (HsTyVar Name) where
   kindOf (RnTyVar _name kind) = kind
-  kindOf _ {- PsTyVar {} -}   = error "We need GHC 8.0"
 
 instance Kinded FcTyVar where
   kindOf = fctyvar_kind
