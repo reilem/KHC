@@ -292,12 +292,12 @@ getRealArgTys ty as arg_tys = case tyConAppMaybe ty of
   Nothing       -> panic "getRealArgTys: not a type constructor application"
 
 -- | Match equations according to the variable rule
-matchVar :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
+matchVar :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
 matchVar []     _  _   = panic "matchVar: empty variables"
 
 -- | Match equations according to the constructor rule
-matchCon :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
+matchCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchCon (u:us) qs def = do
   let cs = uniqueCons qs
   alts   <- mapM (\c -> matchClause c (u:us) (choose c qs) def) cs
@@ -305,7 +305,7 @@ matchCon (u:us) qs def = do
 matchCon []     _  _   = panic "matchCon: empty variables"
 
 -- | Match an alternative clause
-matchClause :: FcDataCon -> [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcAlt 'Fc)
+matchClause :: FcDataCon -> [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcAlt 'Fc)
 matchClause dc (u:us) qs def = do
   exp_ty       <- lookupTmVarM u
   k            <- arity dc
@@ -318,13 +318,13 @@ matchClause dc (u:us) qs def = do
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
 -- | Match a list of equations according to variable or constructor rule
-matchVarCon :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
+matchVarCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
 matchVarCon us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
 matchVarCon _  _                                _   = panic "matchVarCon: invalid equations"
 
 -- | Main match function
-match :: [FcTmVar] -> [PmEqn] -> (FcTerm 'Fc) -> FcM (FcTerm 'Fc)
+match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
 match []     (q:_)  _   = fst <$> tcTerm (get_rhs q)
 match  _     _      _   = panic "match: invalid end case reached"
