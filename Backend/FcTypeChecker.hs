@@ -328,7 +328,6 @@ match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
 match []     (q:_)  _   = fst <$> tcTerm (get_rhs q)
 match []     []     def = return def
-match  _     _      _   = panic "match: invalid end case reached"
 
 -- | Ensure that all types are syntactically the same
 ensureIdenticalTypes :: [FcType] -> FcM ()
