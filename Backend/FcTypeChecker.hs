@@ -258,7 +258,7 @@ altToEqn (FcAlt p t) = ([p], t)
 
 -- | Create a default term
 defaultTerm :: FcM (FcTerm 'Fc)
-defaultTerm = FcTmVar <$> freshFcTmVar
+defaultTerm = FcTmERROR "Match Failed" <$> (FcTyVar <$> freshFcTyVar KStar)  
 
 -- | Check if first pattern of equation contains a variable
 isVar :: PmEqn -> Bool
