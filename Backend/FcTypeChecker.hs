@@ -25,6 +25,9 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Except
 
+import Data.Foldable (foldrM)
+import Data.List (nub)
+
 -- * Type checking monad
 -- ----------------------------------------------------------------------------
 type FcM = UniqueSupplyT (ReaderT FcCtx (StateT FcGblEnv (ExceptT String (Writer Trace))))
@@ -184,7 +187,16 @@ tcTerm (FcTmCaseFc scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   (fc_alts, ty)    <- tcAlts scr_ty alts
   return (FcTmCaseFc fc_scr fc_alts, ty)
-tcTerm (FcTmCaseTc _ _) = notImplemented "FcTypeChecker tcTerm FcTmCaseTc"
+tcTerm (FcTmCaseTc scr alts) = do
+  (fc_scr, scr_ty) <- tcTerm scr
+  x                <- makeVar
+  def              <- defaultTerm
+  let qs           = map altToEqn alts
+  dsgr             <- extendCtxTmM x scr_ty (match [x] qs def)
+  -- throwErrorM $ text "Post desugar" <+> ppr dsgr
+  let subbed = substVar x fc_scr dsgr
+  -- throwErrorM $ text "Post sub" <+> ppr subbed
+  tcTerm subbed
 tcTerm (FcTmERROR s ty) = do
   kind <- tcType ty  -- GEORGE: Should have kind star
   unless (kind == KStar) $
@@ -230,6 +242,92 @@ tcAlt scr_ty (FcAlt (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
     (fc_rhs, ty)     <- extendCtxTmsM xs real_arg_tys (tcTerm rhs)
     return (FcAlt (FcConPat dc xs) fc_rhs, ty)
   Nothing -> throwErrorM (text "destructScrTy" <+> colon <+> text "Not a tycon application")
+
+-- * Pattern desugaring
+-- ---------------------------------------------
+
+type PmEqn = ([FcPat 'Tc], FcTerm 'Tc)
+
+-- | Get right hand side of an equation
+get_rhs :: PmEqn -> FcTerm 'Tc
+get_rhs = snd
+
+-- | Convert an Alt to an equation
+altToEqn :: FcAlt 'Tc -> PmEqn
+altToEqn (FcAlt p t) = ([p], t)
+
+-- | Create a default term
+defaultTerm :: FcM (FcTerm 'Fc)
+defaultTerm = FcTmVar <$> freshFcTmVar
+
+-- | Check if first pattern of equation contains a variable
+isVar :: PmEqn -> Bool
+isVar (((FcVarPat _):_), _) = True
+isVar _                     = False
+
+-- | Group the equations based on if they start with a variable or constructor
+groupEqns :: [PmEqn] -> [[PmEqn]]
+groupEqns = partition isVar
+
+-- | Generate fresh renamed variable
+makeVar :: FcM FcTmVar
+makeVar = freshFcTmVar
+
+-- Choose all equations that start with the given data constructor
+choose :: FcDataCon -> [PmEqn] -> [PmEqn]
+choose c qs = [q | q@(((FcConPatNs c' _):_), _) <- qs, c == c']
+
+-- Get list of unique constructors in the given list of equation
+uniqueCons :: [PmEqn] -> [FcDataCon]
+uniqueCons qs = nub [dc | ((FcConPatNs dc _):_, _) <- qs]
+
+-- Get ariry of data constructor
+arity :: FcDataCon -> FcM Int
+arity dc = length . fc_dc_arg_tys <$> lookupDataConInfoM dc
+
+getRealArgTys :: FcType -> [FcTyVar] -> [FcType] -> [FcType]
+getRealArgTys ty as arg_tys = case tyConAppMaybe ty of
+  Just (_, tys) -> let ty_subst = mconcat (zipWithExact (|->) as tys) in
+    map (substFcTyInTy ty_subst) arg_tys
+  Nothing       -> panic "getRealArgTys: not a type constructor application"
+
+-- | Match equations according to the variable rule
+matchVar :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
+matchVar []     _  _   = panic "matchVar: empty variables"
+
+-- | Match equations according to the constructor rule
+matchCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchCon (u:us) qs def = do
+  let cs = uniqueCons qs
+  alts   <- mapM (\c -> matchClause c (u:us) (choose c qs) def) cs
+  return (FcTmCaseFc (FcTmVar u) alts)
+matchCon []     _  _   = panic "matchCon: empty variables"
+
+-- | Match an alternative clause
+matchClause :: FcDataCon -> [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcAlt 'Fc)
+matchClause dc (u:us) qs def = do
+  exp_ty       <- lookupTmVarM u
+  k            <- arity dc
+  us'          <- replicateM k makeVar
+  (as, tys, _) <- lookupDataConTyM dc
+  let real_tys = getRealArgTys exp_ty as tys
+  let mtch     = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
+  fc_rhs       <- extendCtxTmsM us' real_tys mtch -- REINERT: george doesn't like this binding variables.
+  return (FcAlt (FcConPat dc us') fc_rhs)
+matchClause _   []    _  _   = panic "matchClause: empty variables"
+
+-- | Match a list of equations according to variable or constructor rule
+matchVarCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
+matchVarCon us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
+matchVarCon _  _                                _   = panic "matchVarCon: invalid equations"
+
+-- | Main match function
+match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
+match []     (q:_)  _   = fst <$> tcTerm (get_rhs q)
+match []     []     def = return def
 
 -- | Ensure that all types are syntactically the same
 ensureIdenticalTypes :: [FcType] -> FcM ()
