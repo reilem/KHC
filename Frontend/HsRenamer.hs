@@ -344,12 +344,9 @@ rnDataDecl (DataD tc as dcs) = do
     throwErrorRnM (text "TyCon" <+> ppr tc <+> text "has non-linear parameters")
   rnas      <- mapM rnTyVar as
 
-  let dcError = error $ "Attempt to access data constructors in " ++ (render $ ppr rntc) ++ " before they were available"
-
-  -- Define renaming of data constructors
-  let binds = zipExact (map labelOf as) rnas
-
   -- Perform renaming of the data constructors
+  let dcError = error $ "Attempt to access data constructors in " ++ (render $ ppr rntc) ++ " before they were available"
+  let binds = zipExact (map labelOf as) rnas
   rndcs <- forM dcs $ \(dc, tys) -> do
     -- Rename the data constructor
     rndc <- do
