@@ -499,7 +499,9 @@ elabTmCase scr alts = do
   (scr_ty, fc_scr) <- elabTerm scr               -- Elaborate the scrutinee
   rhs_ty  <- TyVar <$> freshRnTyVar KStar        -- Generate a fresh type variable for the result
   fc_alts <- mapM (elabHsAlt scr_ty rhs_ty) alts -- Check the alternatives
-  return (rhs_ty, FcTmCaseTc fc_scr fc_alts)
+  fc_scr_ty <- liftGenM (elabMonoTy scr_ty)
+  fc_rhs_ty <- liftGenM (elabMonoTy rhs_ty)
+  return (rhs_ty, FcTmCaseTc fc_scr_ty fc_rhs_ty fc_scr fc_alts)
 
 -- | Elaborate a case alternative
 elabHsAlt :: RnMonoTy         {- Type of the scrutinee  -}
@@ -747,7 +749,7 @@ elabClsDecl (ClsD rn_cs cls (a :| _) method method_ty) = do
 
     let fc_tm = FcTmTyAbs (rnTyVarToFcTyVar a) $
                   FcTmAbs da fc_cls_head $
-                    FcTmCaseTc (FcTmVar da)
+                    FcTmCaseTc fc_method_ty fc_method_ty (FcTmVar da)
                              [FcAlt (FcConPatNs dc (map FcVarPat xs)) (FcTmVar (xs !! i))]
     let proj = FcValBind d fc_scheme fc_tm
 
@@ -781,7 +783,7 @@ elabMethodSig method a cls sigma = do
 
   let fc_method_rhs = fcTmTyAbs (map rnTyVarToFcTyVar bs) $
                         fcTmAbs dbinds $
-                          FcTmCaseTc (FcTmVar (head ds))
+                          FcTmCaseTc fc_method_ty fc_method_ty (FcTmVar (head ds))
                                    [FcAlt (FcConPatNs dc (map FcVarPat xs))
                                           (fcDictApp (fcTmTyApp (FcTmVar (last xs)) (tail rn_bs)) (tail ds))]
 

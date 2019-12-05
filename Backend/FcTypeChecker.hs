@@ -193,16 +193,12 @@ tcTerm (FcTmCaseFc scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   (fc_alts, ty)    <- tcAlts scr_ty alts
   return (FcTmCaseFc fc_scr fc_alts, ty)
-tcTerm (FcTmCaseTc scr alts) = do
+tcTerm (FcTmCaseTc _ rhs_ty scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   x                <- makeVar
-  def              <- defaultTerm
   let qs           = map altToEqn alts
-  dsgr             <- extendCtxTmM x scr_ty (match [x] qs def)
-  -- throwErrorM $ text "Post desugar" <+> ppr dsgr
-  let subbed = substVar x fc_scr dsgr
-  -- throwErrorM $ text "Post sub" <+> ppr subbed
-  tcTerm subbed
+  dsgr             <- extendCtxTmM x scr_ty (match [x] qs (defaultTerm rhs_ty))
+  tcTerm (substVar x fc_scr dsgr)
 tcTerm (FcTmERROR s ty) = do
   kind <- tcType ty  -- GEORGE: Should have kind star
   unless (kind == KStar) $
@@ -263,8 +259,8 @@ altToEqn :: FcAlt 'Tc -> PmEqn
 altToEqn (FcAlt p t) = ([p], t)
 
 -- | Create a default term
-defaultTerm :: FcM (FcTerm 'Fc)
-defaultTerm = FcTmERROR "Match Failed" <$> (FcTyVar <$> freshFcTyVar KStar)
+defaultTerm :: FcType -> FcTerm 'Fc
+defaultTerm ty = FcTmERROR "Match Failed" ty
 
 -- | Check if first pattern of equation contains a variable
 isVar :: PmEqn -> Bool

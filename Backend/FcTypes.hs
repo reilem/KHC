@@ -172,8 +172,8 @@ data FcTerm (a :: Phase) where
   FcTmTyApp     :: FcTerm a -> FcType -> FcTerm a                        -- ^ Type application
   FcTmDataCon   :: FcDataCon -> FcTerm a                                 -- ^ Data constructor
   FcTmLet       :: FcTmVar -> FcType -> FcTerm a -> FcTerm a -> FcTerm a -- ^ Let binding: let x : ty = tm in tm
-  FcTmCaseFc      :: FcTerm 'Fc -> [FcAlt 'Fc] -> FcTerm 'Fc               -- ^ Case
-  FcTmCaseTc    :: FcTerm 'Tc -> [FcAlt 'Tc] -> FcTerm 'Tc               -- ^ Nested Case
+  FcTmCaseFc    :: FcTerm 'Fc -> [FcAlt 'Fc] -> FcTerm 'Fc               -- ^ Case
+  FcTmCaseTc    :: FcType -> FcType -> FcTerm 'Tc -> [FcAlt 'Tc] -> FcTerm 'Tc               -- ^ Nested Case
   FcTmERROR     :: String -> FcType -> FcTerm a                          -- ^ Hard-wired error call
 -- GEORGE: You should never need to make terms and patterns instances of Eq. If
 -- you do it means that something is probably wrong (the only setting where you
@@ -256,7 +256,7 @@ instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmDataCon{})        = []
   ftyvsOf (FcTmLet _ ty tm1 tm2) = ftyvsOf ty ++ ftyvsOf tm1 ++ ftyvsOf tm2
   ftyvsOf (FcTmCaseFc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
-  ftyvsOf (FcTmCaseTc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
+  ftyvsOf (FcTmCaseTc _ _ tm cs) = ftyvsOf tm ++ ftyvsOf cs
   ftyvsOf (FcTmERROR _err ty)    = ftyvsOf ty
 
 instance ContainsFreeTyVars (FcAlt a) FcTyVar where
@@ -323,7 +323,7 @@ instance PrettyPrint (FcTerm a) where
 
   ppr (FcTmCaseFc tm cs)     = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
-  ppr (FcTmCaseTc tm cs)   = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
+  ppr (FcTmCaseTc _ _ tm cs) = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
   ppr (FcTmERROR s _ty)    = text "ERROR" <+> doubleQuotes (text s)
 
