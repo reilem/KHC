@@ -97,6 +97,20 @@ addTyConInfoRnM :: PsTyCon -> HsTyConInfo -> RnM ()
 addTyConInfoRnM tc info = modify $ \s ->
   s { rn_env_tc_info = extendAssocList tc info (rn_env_tc_info s) }
 
+-- | Locally add a renamed tycon to state
+addTyConInfoRnMLocal :: PsTyCon -> HsTyConInfo -> RnM a -> RnM a
+addTyConInfoRnMLocal tc info m =
+  localMod (\s -> s { rn_env_tc_info = extendAssocList tc info (rn_env_tc_info s) }) m
+
+-- | Modify state for an operation locally
+localMod :: (RnEnv -> RnEnv) -> RnM a -> RnM a
+localMod f m = do
+  s <- get
+  put (f s)
+  a <- m
+  put s
+  return a
+
 -- | Assign a unique to a plain symbol
 rnSym :: MonadUnique m => Sym -> m Name
 rnSym s = getUniqueM >>= return . mkName s
@@ -328,13 +342,14 @@ rnDataDecl (DataD tc as dcs) = do
   -- Rename the universal type variables
   unless (distinct as) $
     throwErrorRnM (text "TyCon" <+> ppr tc <+> text "has non-linear parameters")
-  rnas <- mapM rnTyVar as
+  rnas      <- mapM rnTyVar as
 
-  -- Store the TyCon info in the global environment
-  addTyConInfoRnM tc $ HsTCInfo rntc rnas (FcTC (nameOf rntc))
+  let dcError = error $ "Attempt to access data constructors in " ++ (render $ ppr rntc) ++ " before they were available"
 
-  -- Rename the data constructors
+  -- Define renaming of data constructors
   let binds = zipExact (map labelOf as) rnas
+
+  -- Perform renaming of the data constructors
   rndcs <- forM dcs $ \(dc, tys) -> do
     -- Rename the data constructor
     rndc <- do
@@ -342,14 +357,15 @@ rnDataDecl (DataD tc as dcs) = do
       case lookupInAssocList dc dc_infos of
         Just {} -> throwErrorRnM (text "DataCon" <+> ppr dc <+> text "already defined")
         Nothing -> HsDC <$> rnSym (symOf dc)
-
-    -- Rename the data constructor's type arguments
-    rntys <- mapM (extendTyVars binds . rnMonoTy) tys
-
+    -- Rename the data constructor's type arguments in local state modified with relevant tycon info
+    rntys <- addTyConInfoRnMLocal tc (HsTCInfo rntc rnas (FcTC (nameOf rntc)) dcError) (mapM (extendTyVars binds . rnMonoTy) tys)
     -- Store the DataCon info in the global environment
     addDataConInfoRnM dc $ HsDCInfo rndc rnas rntc (map monoTyToPolyTy rntys) (FcDC (nameOf rndc))
 
     return (rndc, rntys)
+
+  -- Store the TyCon info in the global environment
+  addTyConInfoRnM tc $ HsTCInfo rntc rnas (FcTC (nameOf rntc)) (fst $ unzip rndcs)
 
   return (DataD rntc (rnas |: map kindOf rnas) rndcs)
 

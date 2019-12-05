@@ -58,7 +58,7 @@ buildInitTcEnv pgm (RnEnv _rn_cls_infos dc_infos tc_infos) = do -- GEORGE: Assum
       ClsD rn_cs rn_cls (rn_a :| _kind) rn_method method_ty -> do
         -- Generate And Store The TyCon Info
         rn_tc <- getUniqueM >>= return . HsTC . mkName (mkSym ("T" ++ (show $ symOf rn_cls)))
-        let tc_info = HsTCInfo rn_tc [rn_a] (FcTC (nameOf rn_tc))
+        let tc_info = HsTCInfo rn_tc [rn_a] (FcTC (nameOf rn_tc)) []
         addTyConInfoTcM rn_tc tc_info
 
         -- Generate And Store The DataCon Info
@@ -109,8 +109,16 @@ instance PrettyPrint TcEnv where
   needsParens _ = False
 
 -- | Transform info for a type constructor to the System F variant
-elabHsTyConInfo :: HsTyConInfo -> FcTyConInfo
-elabHsTyConInfo (HsTCInfo _tc as fc_tc) = FcTCInfo fc_tc (map rnTyVarToFcTyVar as)
+elabHsTyConInfo :: (AssocList RnDataCon HsDataConInfo) -> HsTyConInfo -> FcTyConInfo
+elabHsTyConInfo al (HsTCInfo _tc as fc_tc dcs) =
+  FcTCInfo fc_tc (map rnTyVarToFcTyVar as) (map elabDataCon dcs)
+  where
+    elabDataCon :: RnDataCon -> FcDataCon
+    elabDataCon dc = case lookupInAssocList dc al of
+      Just x  -> hs_dc_fc_data_con x
+      Nothing -> error $ render (text "datacon" <+> colon <+> ppr dc
+        <+> text "not bound during type constructor elaboration")
+
 
 elabHsDataConInfo :: HsDataConInfo -> TcM FcDataConInfo
 elabHsDataConInfo (HsDCInfo _dc as tc tys fc_dc) = do
@@ -125,14 +133,16 @@ elabHsDataConInfo (HsDCClsInfo _dc as tc super tys fc_dc) = do
 
 buildInitFcAssocs :: TcM (AssocList FcTyCon FcTyConInfo, AssocList FcDataCon FcDataConInfo)
 buildInitFcAssocs = do
-  -- Convert the tyCon associations
+  -- Get type constructor and data constructor info lists
   tc_infos <- gets tc_env_tc_info
+  dc_infos <- gets tc_env_dc_info
+
+  -- Convert the tyCon associations
   fc_tc_infos <- flip mapAssocListM tc_infos $ \(tc, tc_info) -> do
-    fc_tc <- lookupTyCon tc
-    return (fc_tc, elabHsTyConInfo tc_info)
+    fc_tc      <- lookupTyCon tc
+    return (fc_tc, elabHsTyConInfo dc_infos tc_info)
 
   -- Convert the dataCon associations
-  dc_infos <- gets tc_env_dc_info
   fc_dc_infos <- flip mapAssocListM dc_infos $ \(dc, dc_info) -> do
     fc_dc      <- lookupDataCon dc
     fc_dc_info <- elabHsDataConInfo dc_info

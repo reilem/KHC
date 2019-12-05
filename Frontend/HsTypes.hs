@@ -34,9 +34,10 @@ type PsTyCon = HsTyCon Sym
 type RnTyCon = HsTyCon Name
 
 data HsTyConInfo
-  = HsTCInfo { hs_tc_ty_con    :: RnTyCon     -- ^ The type constructor name
-             , hs_tc_type_args :: [RnTyVar]   -- ^ Universal types
-             , hs_tc_fc_ty_con :: FcTyCon }   -- ^ Elaborated Type Constructor
+  = HsTCInfo { hs_tc_ty_con    :: RnTyCon       -- ^ The type constructor name
+             , hs_tc_type_args :: [RnTyVar]     -- ^ Universal types
+             , hs_tc_fc_ty_con :: FcTyCon       -- ^ Elaborated Type Constructor
+             , hs_tc_data_cons :: [RnDataCon] } -- ^ Data constructors
 
 -- * Data Constructors
 -- ------------------------------------------------------------------------------
@@ -222,8 +223,10 @@ rnArrowTyCon = HsTC arrowTyConName
 arrowTyConInfo :: HsTyConInfo
 arrowTyConInfo = HsTCInfo rnArrowTyCon
                           [ mkRnTyVar (mkName (mkSym "a") arrowTyVar1Unique) KStar
-                          , mkRnTyVar (mkName (mkSym "b") arrowTyVar2Unique) KStar ]
+                          , mkRnTyVar (mkName (mkSym "b") arrowTyVar2Unique) KStar
+                          ]
                           fcArrowTyCon
+                          []
 
 -- GEORGE: Needed for pretty printing
 isArrowTyCon :: Symable a => HsTyCon a -> Bool
@@ -474,10 +477,11 @@ instance Symable a => PrettyPrint (HsTyCon a) where
 
 -- | Pretty print type constructor info
 instance PrettyPrint HsTyConInfo where
-  ppr (HsTCInfo _tc type_args _fc_ty_con)
+  ppr (HsTCInfo _tc type_args _fc_ty_con _dcs)
     = braces $ vcat $ punctuate comma
     $ [
         text "univ" <+> colon <+> ppr (map (\ty -> ty :| kindOf ty) type_args)
+      , text "datacons" <+> colon <+> ppr _dcs
       ]
   needsParens _ = False
 

@@ -73,15 +73,17 @@ instance Uniquable FcTyCon where
   getUnique = getUnique . unFcTC
 
 data FcTyConInfo
-  = FcTCInfo { fc_tc_ty_con    :: FcTyCon     -- ^ The type constructor name
-             , fc_tc_type_args :: [FcTyVar] } -- ^ Universal types
+  = FcTCInfo { fc_tc_ty_con    :: FcTyCon       -- ^ The type constructor name
+             , fc_tc_type_args :: [FcTyVar]     -- ^ Universal types
+             , fc_tc_data_cons :: [FcDataCon] } -- ^ Child data constructors
 
 -- | Pretty print type constructor info
 instance PrettyPrint FcTyConInfo where
-  ppr (FcTCInfo tc type_args)
+  ppr (FcTCInfo tc type_args dcs)
     = braces $ vcat $ punctuate comma
     $ [ text "fc_tc_ty_con"    <+> colon <+> ppr tc
       , text "fc_tc_type_args" <+> colon <+> ppr type_args
+      , text "fc_tc_data_cons" <+> colon <+> ppr dcs
       ]
 
   needsParens _ = False
