@@ -749,7 +749,7 @@ elabClsDecl (ClsD rn_cs cls (a :| _) method method_ty) = do
 
     let fc_tm = FcTmTyAbs (rnTyVarToFcTyVar a) $
                   FcTmAbs da fc_cls_head $
-                    FcTmCaseTc fc_method_ty fc_method_ty (FcTmVar da)
+                    FcTmCaseTc (panic "class decl scr type access") (panic "class decl rhs type access") (FcTmVar da)
                              [FcAlt (FcConPatNs dc (map FcVarPat xs)) (FcTmVar (xs !! i))]
     let proj = FcValBind d fc_scheme fc_tm
 
@@ -783,7 +783,7 @@ elabMethodSig method a cls sigma = do
 
   let fc_method_rhs = fcTmTyAbs (map rnTyVarToFcTyVar bs) $
                         fcTmAbs dbinds $
-                          FcTmCaseTc fc_method_ty fc_method_ty (FcTmVar (head ds))
+                          FcTmCaseTc (panic "method sig scr type access") (panic "method sig rhs type access") (FcTmVar (head ds))
                                    [FcAlt (FcConPatNs dc (map FcVarPat xs))
                                           (fcDictApp (fcTmTyApp (FcTmVar (last xs)) (tail rn_bs)) (tail ds))]
 

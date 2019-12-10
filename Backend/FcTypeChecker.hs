@@ -306,7 +306,7 @@ matchCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchCon (u:us) qs def = do
   cs     <- constructors qs
   alts   <- mapM (\c -> matchClause c (u:us) (choose c qs) def) cs
-  return (FcTmCaseFc (FcTmVar u) alts)
+  return (FcTmCaseFc (FcTmVar u) alts) -- CLEAN UP: do not drop type information
 matchCon []     _  _   = panic "matchCon: empty variables"
 
 -- | Match an alternative clause
