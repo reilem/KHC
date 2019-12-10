@@ -325,7 +325,7 @@ instance PrettyPrint (FcTerm a) where
                                   2 (vcat $ map ppr cs)
   ppr (FcTmCaseTc _ _ tm cs) = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
-  ppr (FcTmERROR s _ty)    = text "ERROR" <+> doubleQuotes (text s)
+  ppr (FcTmERROR s ty)    = text "ERROR" <+> doubleQuotes (text s) <+> dcolon <+> ppr ty
 
   needsParens (FcTmApp     {}) = True
   needsParens (FcTmTyApp   {}) = True
