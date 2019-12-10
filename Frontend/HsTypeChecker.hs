@@ -58,7 +58,7 @@ buildInitTcEnv pgm (RnEnv _rn_cls_infos dc_infos tc_infos) = do -- GEORGE: Assum
       ClsD rn_cs rn_cls (rn_a :| _kind) rn_method method_ty -> do
         -- Generate And Store The TyCon Info
         rn_tc <- getUniqueM >>= return . HsTC . mkName (mkSym ("T" ++ (show $ symOf rn_cls)))
-        let tc_info = HsTCInfo rn_tc [rn_a] (FcTC (nameOf rn_tc))
+        let tc_info = HsTCInfo rn_tc [rn_a] (FcTC (nameOf rn_tc)) []
         addTyConInfoTcM rn_tc tc_info
 
         -- Generate And Store The DataCon Info
@@ -109,8 +109,16 @@ instance PrettyPrint TcEnv where
   needsParens _ = False
 
 -- | Transform info for a type constructor to the System F variant
-elabHsTyConInfo :: HsTyConInfo -> FcTyConInfo
-elabHsTyConInfo (HsTCInfo _tc as fc_tc) = FcTCInfo fc_tc (map rnTyVarToFcTyVar as)
+elabHsTyConInfo :: (AssocList RnDataCon HsDataConInfo) -> HsTyConInfo -> FcTyConInfo
+elabHsTyConInfo al (HsTCInfo _tc as fc_tc dcs) =
+  FcTCInfo fc_tc (map rnTyVarToFcTyVar as) (map elabDataCon dcs)
+  where
+    elabDataCon :: RnDataCon -> FcDataCon
+    elabDataCon dc = case lookupInAssocList dc al of
+      Just x  -> hs_dc_fc_data_con x
+      Nothing -> error $ render (text "datacon" <+> colon <+> ppr dc
+        <+> text "not bound during type constructor elaboration")
+
 
 elabHsDataConInfo :: HsDataConInfo -> TcM FcDataConInfo
 elabHsDataConInfo (HsDCInfo _dc as tc tys fc_dc) = do
@@ -125,14 +133,16 @@ elabHsDataConInfo (HsDCClsInfo _dc as tc super tys fc_dc) = do
 
 buildInitFcAssocs :: TcM (AssocList FcTyCon FcTyConInfo, AssocList FcDataCon FcDataConInfo)
 buildInitFcAssocs = do
-  -- Convert the tyCon associations
+  -- Get type constructor and data constructor info lists
   tc_infos <- gets tc_env_tc_info
+  dc_infos <- gets tc_env_dc_info
+
+  -- Convert the tyCon associations
   fc_tc_infos <- flip mapAssocListM tc_infos $ \(tc, tc_info) -> do
-    fc_tc <- lookupTyCon tc
-    return (fc_tc, elabHsTyConInfo tc_info)
+    fc_tc      <- lookupTyCon tc
+    return (fc_tc, elabHsTyConInfo dc_infos tc_info)
 
   -- Convert the dataCon associations
-  dc_infos <- gets tc_env_dc_info
   fc_dc_infos <- flip mapAssocListM dc_infos $ \(dc, dc_info) -> do
     fc_dc      <- lookupDataCon dc
     fc_dc_info <- elabHsDataConInfo dc_info
@@ -489,7 +499,9 @@ elabTmCase scr alts = do
   (scr_ty, fc_scr) <- elabTerm scr               -- Elaborate the scrutinee
   rhs_ty  <- TyVar <$> freshRnTyVar KStar        -- Generate a fresh type variable for the result
   fc_alts <- mapM (elabHsAlt scr_ty rhs_ty) alts -- Check the alternatives
-  return (rhs_ty, FcTmCaseTc fc_scr fc_alts)
+  fc_scr_ty <- liftGenM (elabMonoTy scr_ty)
+  fc_rhs_ty <- liftGenM (elabMonoTy rhs_ty)
+  return (rhs_ty, FcTmCaseTc fc_scr_ty fc_rhs_ty fc_scr fc_alts)
 
 -- | Elaborate a case alternative
 elabHsAlt :: RnMonoTy         {- Type of the scrutinee  -}
@@ -737,7 +749,7 @@ elabClsDecl (ClsD rn_cs cls (a :| _) method method_ty) = do
 
     let fc_tm = FcTmTyAbs (rnTyVarToFcTyVar a) $
                   FcTmAbs da fc_cls_head $
-                    FcTmCaseTc (FcTmVar da)
+                    FcTmCaseTc (panic "class decl scr type access") (panic "class decl rhs type access") (FcTmVar da)
                              [FcAlt (FcConPatNs dc (map FcVarPat xs)) (FcTmVar (xs !! i))]
     let proj = FcValBind d fc_scheme fc_tm
 
@@ -771,7 +783,7 @@ elabMethodSig method a cls sigma = do
 
   let fc_method_rhs = fcTmTyAbs (map rnTyVarToFcTyVar bs) $
                         fcTmAbs dbinds $
-                          FcTmCaseTc (FcTmVar (head ds))
+                          FcTmCaseTc (panic "method sig scr type access") (panic "method sig rhs type access") (FcTmVar (head ds))
                                    [FcAlt (FcConPatNs dc (map FcVarPat xs))
                                           (fcDictApp (fcTmTyApp (FcTmVar (last xs)) (tail rn_bs)) (tail ds))]
 

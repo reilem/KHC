@@ -26,7 +26,6 @@ import Control.Monad.State
 import Control.Monad.Except
 
 import Data.Foldable (foldrM)
-import Data.List (nub)
 
 -- * Type checking monad
 -- ----------------------------------------------------------------------------
@@ -70,6 +69,13 @@ lookupDataConInfoM = lookupFcGblEnvM fc_env_dc_info
 lookupDataConTyM :: FcDataCon -> FcM ([FcTyVar], [FcType], FcTyCon)
 lookupDataConTyM dc = lookupDataConInfoM dc >>= \info ->
   return (fc_dc_univ info, fc_dc_arg_tys info, fc_dc_parent info)
+
+-- | Lookup the type constructor info given a certain data constructor
+lookupDataConTyConInfoM :: FcDataCon -> FcM FcTyConInfo
+lookupDataConTyConInfoM dc = do
+  dc_info <- lookupDataConInfoM dc
+  let ty_con = fc_dc_parent dc_info
+  lookupTyConInfoM ty_con
 
 -- * Ensure that some things are not bound in the local context
 -- ----------------------------------------------------------------------------
@@ -187,16 +193,12 @@ tcTerm (FcTmCaseFc scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   (fc_alts, ty)    <- tcAlts scr_ty alts
   return (FcTmCaseFc fc_scr fc_alts, ty)
-tcTerm (FcTmCaseTc scr alts) = do
+tcTerm (FcTmCaseTc _ rhs_ty scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   x                <- makeVar
-  def              <- defaultTerm
   let qs           = map altToEqn alts
-  dsgr             <- extendCtxTmM x scr_ty (match [x] qs def)
-  -- throwErrorM $ text "Post desugar" <+> ppr dsgr
-  let subbed = substVar x fc_scr dsgr
-  -- throwErrorM $ text "Post sub" <+> ppr subbed
-  tcTerm subbed
+  dsgr             <- extendCtxTmM x scr_ty (match [x] qs (defaultTerm rhs_ty))
+  tcTerm (substVar x fc_scr dsgr)
 tcTerm (FcTmERROR s ty) = do
   kind <- tcType ty  -- GEORGE: Should have kind star
   unless (kind == KStar) $
@@ -257,8 +259,8 @@ altToEqn :: FcAlt 'Tc -> PmEqn
 altToEqn (FcAlt p t) = ([p], t)
 
 -- | Create a default term
-defaultTerm :: FcM (FcTerm 'Fc)
-defaultTerm = FcTmVar <$> freshFcTmVar
+defaultTerm :: FcType -> FcTerm 'Fc
+defaultTerm ty = FcTmERROR "Match Failed" ty
 
 -- | Check if first pattern of equation contains a variable
 isVar :: PmEqn -> Bool
@@ -277,9 +279,12 @@ makeVar = freshFcTmVar
 choose :: FcDataCon -> [PmEqn] -> [PmEqn]
 choose c qs = [q | q@(((FcConPatNs c' _):_), _) <- qs, c == c']
 
--- Get list of unique constructors in the given list of equation
-uniqueCons :: [PmEqn] -> [FcDataCon]
-uniqueCons qs = nub [dc | ((FcConPatNs dc _):_, _) <- qs]
+-- Get list of all constructors of the same type as the first data constructor in the equation
+constructors :: [PmEqn] -> FcM [FcDataCon]
+constructors (((FcConPatNs dc _):_, _):_) = do
+  ty_con_info <- lookupDataConTyConInfoM dc
+  return $ fc_tc_data_cons ty_con_info
+constructors _                            = return []
 
 -- Get ariry of data constructor
 arity :: FcDataCon -> FcM Int
@@ -299,9 +304,9 @@ matchVar []     _  _   = panic "matchVar: empty variables"
 -- | Match equations according to the constructor rule
 matchCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchCon (u:us) qs def = do
-  let cs = uniqueCons qs
+  cs     <- constructors qs
   alts   <- mapM (\c -> matchClause c (u:us) (choose c qs) def) cs
-  return (FcTmCaseFc (FcTmVar u) alts)
+  return (FcTmCaseFc (FcTmVar u) alts) -- CLEAN UP: do not drop type information
 matchCon []     _  _   = panic "matchCon: empty variables"
 
 -- | Match an alternative clause

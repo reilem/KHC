@@ -73,15 +73,17 @@ instance Uniquable FcTyCon where
   getUnique = getUnique . unFcTC
 
 data FcTyConInfo
-  = FcTCInfo { fc_tc_ty_con    :: FcTyCon     -- ^ The type constructor name
-             , fc_tc_type_args :: [FcTyVar] } -- ^ Universal types
+  = FcTCInfo { fc_tc_ty_con    :: FcTyCon       -- ^ The type constructor name
+             , fc_tc_type_args :: [FcTyVar]     -- ^ Universal types
+             , fc_tc_data_cons :: [FcDataCon] } -- ^ Child data constructors
 
 -- | Pretty print type constructor info
 instance PrettyPrint FcTyConInfo where
-  ppr (FcTCInfo tc type_args)
+  ppr (FcTCInfo tc type_args dcs)
     = braces $ vcat $ punctuate comma
     $ [ text "fc_tc_ty_con"    <+> colon <+> ppr tc
       , text "fc_tc_type_args" <+> colon <+> ppr type_args
+      , text "fc_tc_data_cons" <+> colon <+> ppr dcs
       ]
 
   needsParens _ = False
@@ -170,8 +172,8 @@ data FcTerm (a :: Phase) where
   FcTmTyApp     :: FcTerm a -> FcType -> FcTerm a                        -- ^ Type application
   FcTmDataCon   :: FcDataCon -> FcTerm a                                 -- ^ Data constructor
   FcTmLet       :: FcTmVar -> FcType -> FcTerm a -> FcTerm a -> FcTerm a -- ^ Let binding: let x : ty = tm in tm
-  FcTmCaseFc      :: FcTerm 'Fc -> [FcAlt 'Fc] -> FcTerm 'Fc               -- ^ Case
-  FcTmCaseTc    :: FcTerm 'Tc -> [FcAlt 'Tc] -> FcTerm 'Tc               -- ^ Nested Case
+  FcTmCaseFc    :: FcTerm 'Fc -> [FcAlt 'Fc] -> FcTerm 'Fc               -- ^ Case
+  FcTmCaseTc    :: FcType -> FcType -> FcTerm 'Tc -> [FcAlt 'Tc] -> FcTerm 'Tc               -- ^ Nested Case
   FcTmERROR     :: String -> FcType -> FcTerm a                          -- ^ Hard-wired error call
 -- GEORGE: You should never need to make terms and patterns instances of Eq. If
 -- you do it means that something is probably wrong (the only setting where you
@@ -254,7 +256,7 @@ instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmDataCon{})        = []
   ftyvsOf (FcTmLet _ ty tm1 tm2) = ftyvsOf ty ++ ftyvsOf tm1 ++ ftyvsOf tm2
   ftyvsOf (FcTmCaseFc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
-  ftyvsOf (FcTmCaseTc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
+  ftyvsOf (FcTmCaseTc _ _ tm cs) = ftyvsOf tm ++ ftyvsOf cs
   ftyvsOf (FcTmERROR _err ty)    = ftyvsOf ty
 
 instance ContainsFreeTyVars (FcAlt a) FcTyVar where
@@ -321,9 +323,9 @@ instance PrettyPrint (FcTerm a) where
 
   ppr (FcTmCaseFc tm cs)     = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
-  ppr (FcTmCaseTc tm cs)   = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
+  ppr (FcTmCaseTc _ _ tm cs) = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
-  ppr (FcTmERROR s _ty)    = text "ERROR" <+> doubleQuotes (text s)
+  ppr (FcTmERROR s ty)    = text "ERROR" <+> doubleQuotes (text s) <+> dcolon <+> ppr ty
 
   needsParens (FcTmApp     {}) = True
   needsParens (FcTmTyApp   {}) = True
