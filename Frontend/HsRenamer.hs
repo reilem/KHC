@@ -227,6 +227,7 @@ rnPat (HsConPat dc ps) = do
 rnPat (HsVarPat x) = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
+rnPat HsWildPat = return (HsWildPat, [])
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
@@ -345,7 +346,7 @@ rnDataDecl (DataD tc as dcs) = do
   rnas      <- mapM rnTyVar as
 
   -- Perform renaming of the data constructors
-  let dcError = error $ "Attempt to access data constructors in " ++ (render $ ppr rntc) ++ " before they were available"
+  let dcError = panic $ "Attempt to access data constructors in " ++ (render $ ppr rntc) ++ " before they were available"
   let binds = zipExact (map labelOf as) rnas
   rndcs <- forM dcs $ \(dc, tys) -> do
     -- Rename the data constructor
