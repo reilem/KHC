@@ -227,6 +227,7 @@ rnPat (HsConPat dc ps) = do
 rnPat (HsVarPat x) = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
+rnPat HsWildPat = return (HsWildPat, [])
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt

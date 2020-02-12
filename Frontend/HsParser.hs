@@ -258,8 +258,9 @@ pTerm  =  pAppTerm
 
 -- Parse a primary parsed pattern (highest priority)
 pPrimPat :: PsM PsdPat
-pPrimPat =  PsdConPat <$> pDataCon
-        <|> PsdVarPat <$> pTmVar
+pPrimPat =  PsdWildPat <$  symbol "_"
+        <|> PsdConPat  <$> pDataCon
+        <|> PsdVarPat  <$> pTmVar
         <|> parens pPatMain
 
 -- Parse a parsed pattern (lowest priority)
@@ -268,6 +269,7 @@ pPatMain = chainl1 pPrimPat (pure PsdAppPat)
 
 -- Transform a parsed pattern into a haskell pattern
 pTransPat :: PsdPat -> Maybe PsPat
+pTransPat PsdWildPat        = return $ HsWildPat
 pTransPat (PsdConPat dc)    = return $ HsConPat dc []
 pTransPat (PsdVarPat x)     = return $ HsVarPat x
 pTransPat (PsdAppPat p1 p2) = do
