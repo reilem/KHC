@@ -1,7 +1,7 @@
 
 module Utils.Utils where
 
-import Data.List (nub)
+import Data.List (nub, delete)
 
 -- | Zip two lists into a list of tuples. Fail if lengths don't match.
 zipExact :: [a] -> [b] -> [(a,b)]
@@ -35,3 +35,9 @@ partition _ [x]      = [[x]]
 partition f (x:y:xs)
   | f x == f y = tack x (partition f (y : xs))
   | otherwise  = [x] : partition f (y : xs)
+
+listsEqual :: Eq a => [a] -> [a] -> Bool
+listsEqual []     []    = True
+listsEqual []     (_:_) = False
+listsEqual (x:xs) ys    = let ys' = delete x ys in
+  (length ys /= length ys') && listsEqual xs ys'
