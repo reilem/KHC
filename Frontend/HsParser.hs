@@ -265,17 +265,25 @@ pPrimPat =  PsdWildPat <$  symbol "_"
 
 -- Parse a parsed pattern (lowest priority)
 pPatMain :: PsM PsdPat
-pPatMain = chainl1 pPrimPat (pure PsdAppPat)
+pPatMain = chainl1 (chainl1 pPrimPat (pure PsdAppPat)) (pPatOr <$ symbol "||")
+
+-- Create a parsed or pattern
+pPatOr :: PsdPat -> PsdPat -> PsdPat
+pPatOr p1 p2 = PsdOrPat p1 p2
 
 -- Transform a parsed pattern into a haskell pattern
 pTransPat :: PsdPat -> Maybe PsPat
 pTransPat PsdWildPat        = return $ HsWildPat
 pTransPat (PsdConPat dc)    = return $ HsConPat dc []
 pTransPat (PsdVarPat x)     = return $ HsVarPat x
+pTransPat (PsdOrPat  p1 p2) = do
+  p1' <- pTransPat p1
+  p2' <- pTransPat p2
+  return $ HsOrPat p1' p2'
 pTransPat (PsdAppPat p1 p2) = do
-    HsConPat dc xs <- pTransPat p1
-    p2' <- pTransPat p2
-    return $ HsConPat dc (xs ++ [p2']) -- NOTE: this is O(n^2) because of the (++), could be O(n)
+  HsConPat dc xs <- pTransPat p1
+  p2' <- pTransPat p2
+  return $ HsConPat dc (xs ++ [p2']) -- NOTE: this is O(n^2) because of the (++), could be O(n)
 
 -- | Parse a pattern
 pPat :: PsM PsPat
