@@ -36,6 +36,9 @@ partition f (x:y:xs)
   | f x == f y = tack x (partition f (y : xs))
   | otherwise  = [x] : partition f (y : xs)
 
+-- Checks if two (unordered) lists contain the same elements
+-- E.g. listsEqual [3, 2, 1] [2, 1, 3] = True
+-- E.g. listsEqual [5, 5] [4, 4] = False
 listsEqual :: Eq a => [a] -> [a] -> Bool
 listsEqual []     []    = True
 listsEqual []     (_:_) = False
