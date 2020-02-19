@@ -518,7 +518,7 @@ elabHsAlt scr_ty res_ty (HsAlt p rhs) = do
 elabHsPat :: RnMonoTy                {- Expected type -}
           -> RnPat                   {- Pattern       -}
           -> GenM (TcCtx, FcPat 'Tc) {- Context and elaborated pattern -}
-elabHsPat exp_ty (HsVarPat x) = do
+elabHsPat exp_ty (HsVarPat x)     = do
   a <- TyVar <$> freshRnTyVar KStar              -- Generate fresh type
   storeEqCs [exp_ty :~: a]                       -- Store equivalence
   ctx <- extendCtxTmM x (monoTyToPolyTy a) (ask) -- Extend context and ask it explicitly
@@ -528,10 +528,11 @@ elabHsPat exp_ty (HsConPat dc ps) = do
   (ctx, fc_ps)             <- elabHsPats arg_tys ps -- Elaborate all patterns together with their matching argument types
   storeEqCs                [ exp_ty :~: pat_ty ]    -- The expected type must match the pattern type
   return (ctx, FcConPatNs fc_dc fc_ps)              -- Return total context and elaborate pattern
-elabHsPat _ HsWildPat = do
+elabHsPat _ HsWildPat             = do
   frsh <- freshFcTmVar
   ctx  <- ask
   return (ctx, FcVarPat frsh)
+elabHsPat _ (HsOrPat _ _)         = notImplemented "Or-pattern elaboration not implemented"
 
 -- | Elaborate a list of patterns with corresponding expected types
 elabHsPats :: [RnMonoTy]                {- Expected types -}
