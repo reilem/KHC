@@ -21,7 +21,7 @@ import Control.Monad.Writer
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Except
-import Data.List (nub)
+import Data.List (nub, intersect)
 import Control.Arrow (second)
 
 -- * Renaming monad
@@ -228,7 +228,16 @@ rnPat (HsVarPat x)     = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
 rnPat HsWildPat        = return (HsWildPat, [])
-rnPat (HsOrPat _ _)    = notImplemented "Or-pattern renaming not implemented"
+rnPat (HsOrPat p1 p2)    = do
+  (rnp1, binds1) <- rnPat p1
+  (rnp2, binds2) <- rnPat p2
+  let (tmVars1, _) = unzip binds1
+  let (tmVars2, _) = unzip binds2
+  let inters = intersect tmVars1 tmVars2
+  if ((inters == tmVars1) && (inters == tmVars2)) then
+    return (HsOrPat rnp1 rnp2, binds1)
+  else
+    throwErrorRnM (text "Or pattern contains branches with non-equal bindings:" <+> ppr (HsOrPat p1 p2))
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
