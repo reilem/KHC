@@ -65,6 +65,21 @@ instance SubstVar RnTyVar RnMonoTy RnCtr where
       | elem a (map labelOf as) -> error "substTyVarInCtr: Shadowing"
       | otherwise -> Ctr as (map (substVar a ty) cs) (substVar a ty ct)
 
+instance SubstVar RnTmVar RnTmVar RnPat where
+  substVar a ax = \case
+    HsVarPat x
+      | a == x     -> HsVarPat ax
+      | otherwise  -> HsVarPat x
+    HsConPat dc ps -> HsConPat dc (map (substVar a ax) ps)
+    HsOrPat  p1 p2 -> HsOrPat (substVar a ax p1) (substVar a ax p2)
+    HsWildPat      -> HsWildPat
+
+instance SubstVar [RnTmVar] [RnTmVar] RnPat where
+  substVar []     []       p = p
+  substVar (_:_)  []       _ = panic "Substitution executed on differently sized lists"
+  substVar []     (_:_)    _ = panic "Substitution executed on differently sized lists"
+  substVar (a:as) (ax:axs) p = substVar a ax (substVar as axs p)
+
 -- * Target Language SubstVar Instances (Type Substitution)
 -- ------------------------------------------------------------------------------
 

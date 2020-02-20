@@ -16,6 +16,7 @@ import Utils.Utils
 import Utils.Annotated
 import Utils.FreeVars
 import Utils.Trace
+import Utils.Substitution
 
 import Control.Monad.Writer
 import Control.Monad.Reader
@@ -231,10 +232,10 @@ rnPat HsWildPat        = return (HsWildPat, [])
 rnPat (HsOrPat p1 p2)    = do
   (rnp1, binds1) <- rnPat p1
   (rnp2, binds2) <- rnPat p2
-  let (tmVars1, _) = unzip binds1
-  let (tmVars2, _) = unzip binds2
+  let (tmVars1, rnTmVars1) = unzip binds1
+  let (tmVars2, rnTmVars2) = unzip binds2
   if (listsEqual tmVars1 tmVars2) then
-    return (HsOrPat rnp1 rnp2, binds1)
+    return (HsOrPat rnp1 (substVar rnTmVars2 rnTmVars1 rnp2), binds1)
   else
     throwErrorRnM (text "Or pattern contains branches with non-equal bindings:" <+> ppr (HsOrPat p1 p2))
 
