@@ -12,6 +12,7 @@ module Utils.Ctx
 
 import Utils.PrettyPrint
 import Utils.Errors
+import Utils.Utils
 
 import Control.Monad.Reader
 import Control.Monad.Except
@@ -113,5 +114,5 @@ termMatchM _ CtxNil                 _    = return ()
 termMatchM f (CtxConsTy ctx1 _  _ ) ctx2 = termMatchM f ctx1 ctx2
 termMatchM f (CtxConsTm _    tm ty) ctx2 = do
   case lookupTmVarCtx ctx2 tm of
-    Nothing  -> error "could not find term in context"
+    Nothing  -> panic "Could not find a term in context "
     Just ty' -> f ty ty'
