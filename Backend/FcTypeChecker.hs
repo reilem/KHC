@@ -196,7 +196,9 @@ tcTerm (FcTmCaseFc scr alts) = do
 tcTerm (FcTmCaseTc _ rhs_ty scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   x                <- makeVar
-  let qs           = map altToEqn alts
+  -- TODO: remove these comments when done
+  -- throwErrorM (ppr $ flatAlts alts)
+  let qs           = map altToEqn (flatAlts alts)
   dsgr             <- extendCtxTmM x scr_ty (match [x] qs (defaultTerm rhs_ty))
   tcTerm (substVar x fc_scr dsgr)
 tcTerm (FcTmERROR s ty) = do
@@ -221,6 +223,18 @@ tcType (FcTyApp ty1 ty2) = do
     KArr k1a k1b | k1a == k2 -> return k1b
     _otherwise               -> throwError "tcType: Kind mismatch (FcTyApp)"
 tcType (FcTyCon tc) = lookupTyConKindM tc
+
+-- | Flatten out any or patterns in the alternatives
+flatAlts :: FcAlts 'Tc -> FcAlts 'Tc
+flatAlts ((FcAlt p rhs):xs) = [FcAlt p' rhs | p' <- flatPat p] ++ (flatAlts xs)
+flatAlts []                 = []
+
+-- | Flatten out any or patterns in the pattern
+-- | NOTE: NOT WORKING FOR NESTED OR PATTERNS, ONLY TOP LEVEL OR PATTERNS
+flatPat :: FcPat 'Tc -> [FcPat 'Tc]
+flatPat (FcOrPat p1 p2)    = flatPat p1 ++ flatPat p2
+flatPat (FcVarPat x)       = [FcVarPat x]
+flatPat (FcConPatNs dc ps) = [FcConPatNs dc (concat $ map flatPat ps)]
 
 -- | Type check a list of case alternatives
 tcAlts :: FcType -> [FcAlt 'Fc] -> FcM ([FcAlt 'Fc], FcType)
