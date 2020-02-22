@@ -536,7 +536,7 @@ elabHsPat exp_ty (HsOrPat p1 p2)         = do
   (ctx1, fcp1) <- elabHsPat exp_ty p1
   (ctx2, fcp2) <- elabHsPat exp_ty p2
   termMatchM (\ty1 ty2 -> storeEqCs [toMono ty1 :~: toMono ty2]) ctx1 ctx2
-  return (ctx1, notImplemented "")
+  return (ctx1, FcOrPat fcp1 fcp2)
   where
     toMono :: RnPolyTy -> RnMonoTy
     toMono poly = case polyTyToMonoTy poly of
