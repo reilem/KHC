@@ -532,7 +532,17 @@ elabHsPat _ HsWildPat             = do
   frsh <- freshFcTmVar
   ctx  <- ask
   return (ctx, FcVarPat frsh)
-elabHsPat _ (HsOrPat _ _)         = notImplemented "Or-pattern elaboration not implemented"
+elabHsPat exp_ty (HsOrPat p1 p2)         = do
+  (ctx1, fcp1) <- elabHsPat exp_ty p1
+  (ctx2, fcp2) <- elabHsPat exp_ty p2
+  termMatchM (\ty1 ty2 -> storeEqCs [toMono ty1 :~: toMono ty2]) ctx1 ctx2
+  return (ctx1, notImplemented "")
+  where
+    toMono :: RnPolyTy -> RnMonoTy
+    toMono poly = case polyTyToMonoTy poly of
+      Just mono -> mono
+      Nothing   -> panic ("Failed to cast poly type " ++ (render $ ppr poly)
+        ++ " to mono type in elabHsPat for HsOrPat")
 
 -- | Elaborate a list of patterns with corresponding expected types
 elabHsPats :: [RnMonoTy]                {- Expected types -}
