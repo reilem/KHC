@@ -146,6 +146,7 @@ instance SubstVar FcTmVar (FcTerm a) (FcPat a) where
     | x == y            = error "substFcTmVarInPat: Shadowing" -- extra redundancy for safety
     | otherwise         = (FcVarPat y)
   substVar x xtm (FcConPatNs dc ps) = FcConPatNs dc (substVar x xtm ps)
+  substVar x xtm (FcOrPat    p1 p2) = FcOrPat (substVar x xtm p1) (substVar x xtm p2)
 
 -- ------------------------------------------------------------------------------
 
@@ -412,3 +413,7 @@ freshenPatLclBndrs (FcConPatNs dc ps) = do
     freshenPat (ps', subst) p = do
       (p', subst') <- freshenPatLclBndrs p
       return (ps' ++ [p'], subst . subst')
+freshenPatLclBndrs (FcOrPat p1 p2) = do
+  (p1', f1) <- freshenPatLclBndrs p1
+  (p2', f2) <- freshenPatLclBndrs p2
+  return (FcOrPat p1' p2', f1 . f2)
