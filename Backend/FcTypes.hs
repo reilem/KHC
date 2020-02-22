@@ -181,9 +181,10 @@ data FcTerm (a :: Phase) where
 
 -- | Patterns
 data FcPat (a :: Phase) where
-  FcConPat    :: FcDataCon  -> [FcTmVar] -> FcPat 'Fc
-  FcConPatNs  :: FcDataCon  -> [FcPat 'Tc]   -> FcPat 'Tc
-  FcVarPat    :: FcTmVar    -> FcPat 'Tc
+  FcConPat    :: FcDataCon -> [FcTmVar]   -> FcPat 'Fc
+  FcConPatNs  :: FcDataCon -> [FcPat 'Tc] -> FcPat 'Tc
+  FcVarPat    :: FcTmVar   -> FcPat 'Tc
+  FcOrPat     :: FcPat 'Tc -> FcPat 'Tc   -> FcPat 'Tc
 
 -- | Case alternative(s)
 data FcAlt (a :: Phase) where
@@ -343,9 +344,11 @@ instance PrettyPrint (FcPat a) where
   ppr (FcConPat   dc xs)          = ppr dc <+> hsep (map ppr xs)
   ppr (FcConPatNs dc ps)          = ppr dc <+> hsep (map ppr ps)
   ppr (FcVarPat   x)              = ppr x
+  ppr (FcOrPat    p1 p2)          = pprPar p1 <+> text "||" <+> pprPar p2
   needsParens (FcVarPat   _)      = False
   needsParens (FcConPat   _dx xs) = length xs > 0
   needsParens (FcConPatNs _dx ps) = length ps > 0
+  needsParens (FcOrPat    _   _ ) = False
 
 -- | Pretty print case alternatives
 instance PrettyPrint (FcAlt a) where
