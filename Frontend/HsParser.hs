@@ -265,11 +265,7 @@ pPrimPat =  PsdWildPat <$  symbol "_"
 
 -- Parse a parsed pattern (lowest priority)
 pPatMain :: PsM PsdPat
-pPatMain = chainl1 (chainl1 pPrimPat (pure PsdAppPat)) (pPatOr <$ symbol "||")
-
--- Create a parsed or pattern
-pPatOr :: PsdPat -> PsdPat -> PsdPat
-pPatOr p1 p2 = PsdOrPat p1 p2
+pPatMain = chainl1 (chainl1 pPrimPat (pure PsdAppPat)) (PsdOrPat <$ symbol "||")
 
 -- Transform a parsed pattern into a haskell pattern
 pTransPat :: PsdPat -> Maybe PsPat
