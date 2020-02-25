@@ -224,8 +224,7 @@ tcType (FcTyCon tc) = lookupTyConKindM tc
 
 -- | Flatten out any or patterns in the alternatives
 flatAlts :: FcAlts 'Tc -> FcAlts 'Tc
-flatAlts ((FcAlt p rhs):xs) = [FcAlt p' rhs | p' <- flatPat p] ++ (flatAlts xs)
-flatAlts []                 = []
+flatAlts alts = concat $ map (\(FcAlt p rhs) -> [FcAlt p' rhs | p' <- flatPat p]) alts
 
 -- | Flatten out any or patterns in the pattern
 flatPat :: FcPat 'Tc -> [FcPat 'Tc]
