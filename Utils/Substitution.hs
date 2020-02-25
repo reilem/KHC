@@ -65,6 +65,15 @@ instance SubstVar RnTyVar RnMonoTy RnCtr where
       | elem a (map labelOf as) -> error "substTyVarInCtr: Shadowing"
       | otherwise -> Ctr as (map (substVar a ty) cs) (substVar a ty ct)
 
+instance SubstVar RnTmVar RnTmVar RnPat where
+  substVar a ax = \case
+    HsVarPat x
+      | a == x     -> HsVarPat ax
+      | otherwise  -> HsVarPat x
+    HsConPat dc ps -> HsConPat dc (map (substVar a ax) ps)
+    HsOrPat  p1 p2 -> HsOrPat (substVar a ax p1) (substVar a ax p2)
+    HsWildPat      -> HsWildPat
+
 -- * Target Language SubstVar Instances (Type Substitution)
 -- ------------------------------------------------------------------------------
 
@@ -249,6 +258,18 @@ substInQualTy = sub_rec
 -- | Apply a type substitution to a type scheme
 substInPolyTy :: HsTySubst -> RnPolyTy -> RnPolyTy
 substInPolyTy = sub_rec
+
+-- * Term Substitution (Source Language)
+-- ------------------------------------------------------------------------------
+
+type HsTmSubst = Sub RnTmVar RnTmVar
+
+buildRnTmSubst :: [(RnTmVar, RnTmVar)] -> HsTmSubst
+buildRnTmSubst = foldl (\s (x,y) -> SCons s x y) SNil
+
+-- | Apply a list of term substitutions to a pattern
+substInPat :: HsTmSubst -> RnPat -> RnPat
+substInPat = sub_rec
 
 -- * System F Type Substitution
 -- ------------------------------------------------------------------------------

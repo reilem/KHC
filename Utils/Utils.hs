@@ -1,7 +1,7 @@
 
 module Utils.Utils where
 
-import Data.List (nub)
+import Data.List (nub, sort)
 
 -- | Zip two lists into a list of tuples. Fail if lengths don't match.
 zipExact :: [a] -> [b] -> [(a,b)]
@@ -35,3 +35,10 @@ partition _ [x]      = [[x]]
 partition f (x:y:xs)
   | f x == f y = tack x (partition f (y : xs))
   | otherwise  = [x] : partition f (y : xs)
+
+-- Checks if two (unordered) lists contain the same elements
+-- E.g. listsEqual [3, 2, 1] [2, 1, 3] = True
+-- E.g. listsEqual [5, 5] [4, 4] = False
+areOrPatBindsEqual :: Ord a => [a] -> [a] -> Bool
+areOrPatBindsEqual xs ys = distinct xs && distinct ys &&
+  (sort xs == sort ys)

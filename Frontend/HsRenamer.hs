@@ -16,12 +16,13 @@ import Utils.Utils
 import Utils.Annotated
 import Utils.FreeVars
 import Utils.Trace
+import Utils.Substitution
 
 import Control.Monad.Writer
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Except
-import Data.List (nub)
+import Data.List (nub, find)
 import Control.Arrow (second)
 
 -- * Renaming monad
@@ -228,7 +229,27 @@ rnPat (HsVarPat x)     = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
 rnPat HsWildPat        = return (HsWildPat, [])
-rnPat (HsOrPat _ _)    = notImplemented "Or-pattern renaming not implemented"
+rnPat (HsOrPat p1 p2)    = do
+  (rnp1, binds1) <- rnPat p1
+  (rnp2, binds2) <- rnPat p2
+  let (tmVars1, _) = unzip binds1
+  let (tmVars2, _) = unzip binds2
+  if (areOrPatBindsEqual tmVars1 tmVars2) then
+    let orBinds = orBindings binds1 binds2 in
+    return (HsOrPat rnp1 (substInPat (buildRnTmSubst orBinds) rnp2), binds1)
+  else
+    throwErrorRnM (text "Or pattern contains branches with non-equal bindings:" <+> ppr (HsOrPat p1 p2))
+  where
+    -- This generates OR bindings which map renamed term variables from one branch to the correct
+    -- renamed term variables in the other branch.
+    -- E.g. orBindings [(x, x_0), (y, y_0)] [(y, y_1), (x, x_1)] = [(x_0, x_1), (y_0, y_1)]
+    orBindings :: [(PsTmVar, RnTmVar)] -> [(PsTmVar, RnTmVar)] -> [(RnTmVar, RnTmVar)]
+    orBindings binds1 binds2 = map (\(tm, rnTm) ->
+      case find (\bind -> (fst bind) == tm) binds2 of
+        Just bind -> (rnTm, snd bind)
+        Nothing   -> panic ("Could not find term " ++ (render $ ppr tm) ++ " in or-bindings list " ++ (render $ ppr binds2))
+      ) binds1
+
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
