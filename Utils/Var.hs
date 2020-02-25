@@ -70,6 +70,12 @@ mkName = MkName
 -- | Source term variables
 newtype HsTmVar a = HsTmVar { hstmvar_name :: a }
 
+instance Ord (HsTmVar Sym) where
+  compare = compare `on` hstmvar_name
+
+instance Ord (HsTmVar Name) where
+  compare = compare `on` hstmvar_name
+
 -- | Source type variables
 data HsTyVar :: * -> * where
   PsTyVar :: Sym  ->         HsTyVar Sym
@@ -254,4 +260,3 @@ freshFcTyVar k = getUniqueM >>= return . flip FcTyVar k . MkName (MkSym "t")
 -- | Generate a fresh dictionary variable
 freshDictVar :: MonadUnique m => m DictVar
 freshDictVar = getUniqueM >>= return . FcTmVar . MkName (MkSym "d")
-
