@@ -228,12 +228,12 @@ flatAlts ((FcAlt p rhs):xs) = [FcAlt p' rhs | p' <- flatPat p] ++ (flatAlts xs)
 flatAlts []                 = []
 
 -- | Flatten out any or patterns in the pattern
--- | NOTE: NOT WORKING FOR NESTED OR PATTERNS, ONLY TOP LEVEL OR PATTERNS
 flatPat :: FcPat 'Tc -> [FcPat 'Tc]
 flatPat (FcOrPat p1 p2)    = flatPat p1 ++ flatPat p2
 flatPat (FcVarPat x)       = [FcVarPat x]
 flatPat (FcConPatNs dc ps) = [FcConPatNs dc ps' | ps' <- patternCombinations (map flatPat ps)]
 
+-- | Gives every possible combination from the list of lists
 patternCombinations :: [[a]] -> [[a]]
 patternCombinations []     = [[]]
 patternCombinations (x:xs) =
