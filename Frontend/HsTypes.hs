@@ -127,10 +127,12 @@ type RnAlt = HsAlt Name
 data PsdPat = PsdVarPat (HsTmVar Sym)
             | PsdConPat (HsDataCon Sym)
             | PsdAppPat PsdPat PsdPat
+            | PsdOrPat  PsdPat PsdPat
             | PsdWildPat
 
 data HsPat a = HsVarPat (HsTmVar a)
              | HsConPat (HsDataCon a) [HsPat a]
+             | HsOrPat (HsPat a) (HsPat a)
              | HsWildPat
 
 type PsPat = HsPat Sym
@@ -143,19 +145,23 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (HsAlt a) where
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsPat a) where
   ppr (HsConPat dc xs)        = ppr dc <+> hsep (map pprPar xs)
   ppr (HsVarPat x    )        = ppr x
+  ppr (HsOrPat  p1 p2)        = pprPar p1 <+> text "||" <+> pprPar p2
   ppr HsWildPat               = text "_"
   needsParens (HsConPat _ xs) = length xs > 0
   needsParens (HsVarPat _   ) = False
+  needsParens (HsOrPat  _  _) = False
   needsParens HsWildPat       = False
 
 instance PrettyPrint PsdPat where
   ppr (PsdAppPat p1 p2)       = ppr p1 <+> ppr p2
-  ppr (PsdVarPat x )          = ppr x
-  ppr (PsdConPat dc)          = ppr dc
+  ppr (PsdVarPat x    )       = ppr x
+  ppr (PsdConPat dc   )       = ppr dc
+  ppr (PsdOrPat  p1 p2)       = pprPar p1 <+> text "||" <+> pprPar p2
   ppr PsdWildPat              = text "_"
   needsParens (PsdAppPat _ _) = True
-  needsParens (PsdVarPat _)   = False
-  needsParens (PsdConPat _)   = False
+  needsParens (PsdVarPat _  ) = False
+  needsParens (PsdConPat _  ) = False
+  needsParens (PsdOrPat  _ _) = False
   needsParens PsdWildPat      = False
 
 -- * Type Patterns

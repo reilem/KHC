@@ -224,10 +224,11 @@ rnPat (HsConPat dc ps) = do
   case distinct (map fst binds) of
     True  -> return (HsConPat rndc rnps, binds)
     False -> throwErrorRnM (text "Term variables are not distict in pattern:" <+> ppr (HsConPat dc ps))
-rnPat (HsVarPat x) = do
+rnPat (HsVarPat x)     = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
-rnPat HsWildPat = return (HsWildPat, [])
+rnPat HsWildPat        = return (HsWildPat, [])
+rnPat (HsOrPat _ _)    = notImplemented "Or-pattern renaming not implemented"
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
