@@ -39,8 +39,8 @@ partition f (x:y:xs)
 -- Checks if two (unordered) lists contain the same elements
 -- E.g. listsEqual [3, 2, 1] [2, 1, 3] = True
 -- E.g. listsEqual [5, 5] [4, 4] = False
-listsEqual :: Eq a => [a] -> [a] -> Bool
-listsEqual []     []    = True
-listsEqual []     (_:_) = False
-listsEqual (x:xs) ys    = let ys' = delete x ys in
-  (length ys /= length ys') && listsEqual xs ys'
+areOrPatBindsEqual :: Eq a => [a] -> [a] -> Bool
+areOrPatBindsEqual []     []    = True
+areOrPatBindsEqual []     (_:_) = False
+areOrPatBindsEqual (x:xs) ys    = let ys' = delete x ys in
+  (length ys /= length ys') && areOrPatBindsEqual xs ys'

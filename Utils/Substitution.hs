@@ -74,12 +74,6 @@ instance SubstVar RnTmVar RnTmVar RnPat where
     HsOrPat  p1 p2 -> HsOrPat (substVar a ax p1) (substVar a ax p2)
     HsWildPat      -> HsWildPat
 
-instance SubstVar [RnTmVar] [RnTmVar] RnPat where
-  substVar []     []       p = p
-  substVar (_:_)  []       _ = panic "Substitution executed on differently sized lists"
-  substVar []     (_:_)    _ = panic "Substitution executed on differently sized lists"
-  substVar (a:as) (ax:axs) p = substVar a ax (substVar as axs p)
-
 -- * Target Language SubstVar Instances (Type Substitution)
 -- ------------------------------------------------------------------------------
 
@@ -264,6 +258,18 @@ substInQualTy = sub_rec
 -- | Apply a type substitution to a type scheme
 substInPolyTy :: HsTySubst -> RnPolyTy -> RnPolyTy
 substInPolyTy = sub_rec
+
+-- * Term Substitution (Source Language)
+-- ------------------------------------------------------------------------------
+
+type HsTmSubst = Sub RnTmVar RnTmVar
+
+buildRnTmSubst :: [(RnTmVar, RnTmVar)] -> HsTmSubst
+buildRnTmSubst = foldl (\s (x,y) -> SCons s x y) SNil
+
+-- | Apply a list of term substitutions to a pattern
+substInPat :: HsTmSubst -> RnPat -> RnPat
+substInPat = sub_rec
 
 -- * System F Type Substitution
 -- ------------------------------------------------------------------------------

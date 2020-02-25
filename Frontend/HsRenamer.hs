@@ -234,9 +234,9 @@ rnPat (HsOrPat p1 p2)    = do
   (rnp2, binds2) <- rnPat p2
   let (tmVars1, _) = unzip binds1
   let (tmVars2, _) = unzip binds2
-  if (listsEqual tmVars1 tmVars2) then
-    let (rnTmVars1, rnTmVars2) = unzip (orBindings binds1 binds2) in
-    return (HsOrPat rnp1 (substVar rnTmVars2 rnTmVars1 rnp2), binds1)
+  if (areOrPatBindsEqual tmVars1 tmVars2) then
+    let orBinds = orBindings binds1 binds2 in
+    return (HsOrPat rnp1 (substInPat (buildRnTmSubst orBinds) rnp2), binds1)
   else
     throwErrorRnM (text "Or pattern contains branches with non-equal bindings:" <+> ppr (HsOrPat p1 p2))
   where
