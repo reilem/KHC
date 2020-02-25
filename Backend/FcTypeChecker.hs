@@ -196,8 +196,6 @@ tcTerm (FcTmCaseFc scr alts) = do
 tcTerm (FcTmCaseTc _ rhs_ty scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   x                <- makeVar
-  -- TODO: remove these comments when done
-  -- throwErrorM (ppr $ flatAlts alts)
   let qs           = map altToEqn (flatAlts alts)
   dsgr             <- extendCtxTmM x scr_ty (match [x] qs (defaultTerm rhs_ty))
   tcTerm (substVar x fc_scr dsgr)
@@ -234,7 +232,13 @@ flatAlts []                 = []
 flatPat :: FcPat 'Tc -> [FcPat 'Tc]
 flatPat (FcOrPat p1 p2)    = flatPat p1 ++ flatPat p2
 flatPat (FcVarPat x)       = [FcVarPat x]
-flatPat (FcConPatNs dc ps) = [FcConPatNs dc (concat $ map flatPat ps)]
+flatPat (FcConPatNs dc ps) = [FcConPatNs dc ps' | ps' <- patternCombinations (map flatPat ps)]
+
+patternCombinations :: [[a]] -> [[a]]
+patternCombinations []     = [[]]
+patternCombinations (x:xs) =
+  let rest = patternCombinations xs in
+  concatMap (\k -> map (k:) rest) x
 
 -- | Type check a list of case alternatives
 tcAlts :: FcType -> [FcAlt 'Fc] -> FcM ([FcAlt 'Fc], FcType)
