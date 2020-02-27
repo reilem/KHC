@@ -224,20 +224,18 @@ tcType (FcTyCon tc) = lookupTyConKindM tc
 
 -- | Flatten out any or patterns in the alternatives
 flatAlts :: FcAlts 'Tc -> FcAlts 'Tc
-flatAlts alts = concat $ map (\(FcAlt p rhs) -> [FcAlt p' rhs | p' <- flatPat p]) alts
+flatAlts = concatMap (\(FcAlt p rhs) -> [FcAlt p' rhs | p' <- flatPat p])
 
 -- | Flatten out any or patterns in the pattern
 flatPat :: FcPat 'Tc -> [FcPat 'Tc]
 flatPat (FcOrPat p1 p2)    = flatPat p1 ++ flatPat p2
 flatPat (FcVarPat x)       = [FcVarPat x]
-flatPat (FcConPatNs dc ps) = [FcConPatNs dc ps' | ps' <- patternCombinations (map flatPat ps)]
+flatPat (FcConPatNs dc ps) = [FcConPatNs dc ps' | ps' <- cart (map flatPat ps)]
 
 -- | Gives every possible combination from the list of lists
-patternCombinations :: [[a]] -> [[a]]
-patternCombinations []     = [[]]
-patternCombinations (x:xs) =
-  let rest = patternCombinations xs in
-  concatMap (\k -> map (k:) rest) x
+cart :: [[a]] -> [[a]]
+cart []       = pure []
+cart (xs:xss) = concat [[(x:ys) | ys <- cart xss] | x <- xs]
 
 -- | Type check a list of case alternatives
 tcAlts :: FcType -> [FcAlt 'Fc] -> FcM ([FcAlt 'Fc], FcType)
