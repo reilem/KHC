@@ -67,9 +67,7 @@ instance SubstVar RnTyVar RnMonoTy RnCtr where
 
 instance SubstVar RnTmVar RnTmVar RnPat where
   substVar a ax = \case
-    HsVarPat x
-      | a == x     -> HsVarPat ax
-      | otherwise  -> HsVarPat x
+    HsVarPat x     -> HsVarPat x
     HsConPat dc ps -> HsConPat dc (map (substVar a ax) ps)
     HsOrPat  p1 p2 -> HsOrPat (substVar a ax p1) (substVar a ax p2)
     HsWildPat      -> HsWildPat
@@ -270,6 +268,20 @@ buildRnTmSubst = foldl (\s (x,y) -> SCons s x y) SNil
 -- | Apply a list of term substitutions to a pattern
 substInPat :: HsTmSubst -> RnPat -> RnPat
 substInPat = sub_rec
+
+-- | Replaces renamed pattern variables in a pattern according to given substition.
+replacePatBinds :: [(RnTmVar, RnTmVar)] -> RnPat -> RnPat
+replacePatBinds []          = id
+replacePatBinds ((b,bx):bs) = replacePatBinds bs . go b bx
+  where
+    go :: RnTmVar -> RnTmVar -> RnPat -> RnPat
+    go a ax = \case
+      HsVarPat x
+        | a == x     -> HsVarPat ax
+        | otherwise  -> HsVarPat x
+      HsConPat dc ps -> HsConPat dc (map (go a ax) ps)
+      HsOrPat  p1 p2 -> HsOrPat (go a ax p1) (go a ax p2)
+      HsWildPat      -> HsWildPat
 
 -- * System F Type Substitution
 -- ------------------------------------------------------------------------------
