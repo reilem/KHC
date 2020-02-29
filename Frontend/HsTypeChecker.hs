@@ -510,8 +510,9 @@ elabHsAlt :: RnMonoTy         {- Type of the scrutinee  -}
           -> RnAlt            {- Case alternative       -}
           -> GenM (FcAlt 'Tc) {- Elaborated alternative -}
 elabHsAlt scr_ty res_ty (HsAlt p rhs) = do
-  (ctx, fc_p)      <- elabHsPat scr_ty p []      -- Elaborate the pattern
-  (rhs_ty, fc_rhs) <- setCtxM ctx (elabTerm rhs) -- Type check the right hand side
+  (binds, fc_p)    <- elabHsPat scr_ty p []      -- Elaborate the pattern
+  let (tms, tys)   = unzip binds
+  (rhs_ty, fc_rhs) <- extendCtxTmsM tms tys (elabTerm rhs) -- Type check the right hand side
   storeEqCs        [ res_ty :~: rhs_ty ]         -- All right hand sides should be the same
   return (FcAlt fc_p fc_rhs)
 
