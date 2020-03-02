@@ -392,12 +392,15 @@ instance FreshenLclBndrs (FcTerm a) where
 -- | Freshen the (type + term) binders of a System F case alternative
 instance FreshenLclBndrs (FcAlt a) where
   freshenLclBndrs (FcAlt p tm) = do
-    (p', subst) <- freshenPatLclBndrs p
-    tm' <- freshenLclBndrs (subst tm)
+    (p', substs) <- freshenPatLclBndrs p
+    tm' <- freshenLclBndrs (foldr go tm substs)
     return (FcAlt p' tm')
+    where
+      go :: (FcTmVar, FcTmVar) -> FcTerm a -> FcTerm a
+      go (x, y) tm = substVar x (FcTmVar y) tm
 
 
-freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, FcTerm a -> FcTerm a)
+freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, [(FcTmVar, FcTmVar)])
 freshenPatLclBndrs (FcConPat dc xs) = do
   ys  <- mapM (\_ -> freshFcTmVar) xs
   let subst = map (\(x, y) -> substVar x (FcTmVar y)) (zipExact xs ys)
