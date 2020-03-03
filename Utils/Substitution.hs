@@ -393,30 +393,41 @@ instance FreshenLclBndrs (FcTerm a) where
 instance FreshenLclBndrs (FcAlt a) where
   freshenLclBndrs (FcAlt p tm) = do
     (p', substs) <- freshenPatLclBndrs p
-    tm' <- freshenLclBndrs (foldr go tm substs)
+    tm' <- freshenLclBndrs (foldr (\(a,b) acc -> substVar a (FcTmVar b) acc) tm substs)
     return (FcAlt p' tm')
-    where
-      go :: (FcTmVar, FcTmVar) -> FcTerm a -> FcTerm a
-      go (x, y) tm = substVar x (FcTmVar y) tm
-
 
 freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, [(FcTmVar, FcTmVar)])
 freshenPatLclBndrs (FcConPat dc xs) = do
   ys  <- mapM (\_ -> freshFcTmVar) xs
-  let subst = map (\(x, y) -> substVar x (FcTmVar y)) (zipExact xs ys)
-  return (FcConPat dc ys, foldr (.) id subst)
+  return (FcConPat dc ys, zip xs ys)
 freshenPatLclBndrs (FcVarPat x) = do
   y <- freshFcTmVar
-  return (FcVarPat y, substVar x (FcTmVar y))
+  return (FcVarPat y, [(x, y)])
 freshenPatLclBndrs (FcConPatNs dc ps) = do
-  (ps', subst) <- foldM freshenPat ([], id) ps
-  return (FcConPatNs dc ps', subst)
+  (ps', substs) <- foldM freshenPat ([], []) ps
+  return (FcConPatNs dc ps', substs)
   where
-    freshenPat :: MonadUnique m => ([FcPat a], FcTerm a -> FcTerm a) -> FcPat a -> m ([FcPat a], FcTerm a -> FcTerm a)
-    freshenPat (ps', subst) p = do
-      (p', subst') <- freshenPatLclBndrs p
-      return (ps' ++ [p'], subst . subst')
+    freshenPat :: MonadUnique m => ([FcPat a], [(FcTmVar, FcTmVar)]) -> FcPat a -> m ([FcPat a], [(FcTmVar, FcTmVar)])
+    freshenPat (ps', substs') p = do
+      (p', substs'') <- freshenPatLclBndrs p
+      return (p':ps', substs' ++ substs'')
 freshenPatLclBndrs (FcOrPat p1 p2) = do
-  (p1', f1) <- freshenPatLclBndrs p1
-  (p2', f2) <- freshenPatLclBndrs p2
-  return (FcOrPat p1' p2', f1 . f2)
+  (p1', substs) <- freshenPatLclBndrs p1
+  let p2' = applySubsts substs p2
+  return (FcOrPat p1' p2', substs)
+  where
+    applySubsts :: [(FcTmVar, FcTmVar)] -> FcPat a -> FcPat a
+    applySubsts []          p = p
+    applySubsts ((x, y):xs) p = apply x y (applySubsts xs p)
+    apply :: FcTmVar -> FcTmVar -> FcPat a -> FcPat a
+    apply a b (FcConPat dc xs)   = FcConPat dc (replace a b xs)
+    apply a b (FcVarPat x)
+      | a == x                   = FcVarPat b
+      | otherwise                = FcVarPat x
+    apply a b (FcConPatNs dc ps) = FcConPatNs dc (map (apply a b) ps)
+    apply a b (FcOrPat p11 p21)  = FcOrPat (apply a b p11) (apply a b p21)
+    replace :: FcTmVar -> FcTmVar -> [FcTmVar] -> [FcTmVar]
+    replace _ _ []     = []
+    replace x y (a:as)
+      | x == a    = (x : as)
+      | otherwise = (a : replace x y as)
