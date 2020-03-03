@@ -416,18 +416,14 @@ freshenPatLclBndrs (FcOrPat p1 p2) = do
   let p2' = applySubsts substs p2
   return (FcOrPat p1' p2', substs)
   where
+    -- | This is very inefficient, N^2 for FcConPat
     applySubsts :: [(FcTmVar, FcTmVar)] -> FcPat a -> FcPat a
     applySubsts []          p = p
     applySubsts ((x, y):xs) p = apply x y (applySubsts xs p)
     apply :: FcTmVar -> FcTmVar -> FcPat a -> FcPat a
-    apply a b (FcConPat dc xs)   = FcConPat dc (replace a b xs)
+    apply a b (FcConPat dc xs)   = FcConPat dc (map (\x -> if a == x then b else x) xs)
     apply a b (FcVarPat x)
       | a == x                   = FcVarPat b
       | otherwise                = FcVarPat x
     apply a b (FcConPatNs dc ps) = FcConPatNs dc (map (apply a b) ps)
     apply a b (FcOrPat p11 p12)  = FcOrPat (apply a b p11) (apply a b p12)
-    replace :: Eq a => a -> a -> [a] -> [a]
-    replace _ _ []     = []
-    replace x y (a:as)
-      | x == a    = (x : as)
-      | otherwise = (a : replace x y as)

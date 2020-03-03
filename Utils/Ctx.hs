@@ -106,13 +106,3 @@ extendCtxM ctx2 = local (\ctx1 -> ctx1 <> ctx2)
 -- | Replace the context
 setCtxM :: MonadReader r m => r -> m a -> m a
 setCtxM ctx = local (\_ -> ctx)
-
--- | Don't even ask
--- | Applies a function f to the x' in both contexts with a matching x
-termMatchM :: (Eq x, MonadReader (Ctx x x' a a') m) => (x' -> x' -> m ()) -> Ctx x x' a a' -> Ctx x x' a a' -> m ()
-termMatchM _ CtxNil                 _    = return ()
-termMatchM f (CtxConsTy ctx1 _  _ ) ctx2 = termMatchM f ctx1 ctx2
-termMatchM f (CtxConsTm _    tm ty) ctx2 = do
-  case lookupTmVarCtx ctx2 tm of
-    Nothing  -> panic "Could not find a term in context "
-    Just ty' -> f ty ty'
