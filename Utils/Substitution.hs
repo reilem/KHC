@@ -410,7 +410,7 @@ freshenPatLclBndrs (FcConPatNs dc ps) = do
     freshenPat :: MonadUnique m => ([FcPat a], [(FcTmVar, FcTmVar)]) -> FcPat a -> m ([FcPat a], [(FcTmVar, FcTmVar)])
     freshenPat (ps', substs') p = do
       (p', substs'') <- freshenPatLclBndrs p
-      return (p':ps', substs' ++ substs'')
+      return (ps' ++ [p'], substs' ++ substs'')
 freshenPatLclBndrs (FcOrPat p1 p2) = do
   (p1', substs) <- freshenPatLclBndrs p1
   let p2' = applySubsts substs p2
@@ -425,8 +425,8 @@ freshenPatLclBndrs (FcOrPat p1 p2) = do
       | a == x                   = FcVarPat b
       | otherwise                = FcVarPat x
     apply a b (FcConPatNs dc ps) = FcConPatNs dc (map (apply a b) ps)
-    apply a b (FcOrPat p11 p21)  = FcOrPat (apply a b p11) (apply a b p21)
-    replace :: FcTmVar -> FcTmVar -> [FcTmVar] -> [FcTmVar]
+    apply a b (FcOrPat p11 p12)  = FcOrPat (apply a b p11) (apply a b p12)
+    replace :: Eq a => a -> a -> [a] -> [a]
     replace _ _ []     = []
     replace x y (a:as)
       | x == a    = (x : as)
