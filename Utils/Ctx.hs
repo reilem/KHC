@@ -7,12 +7,10 @@ module Utils.Ctx
 , extendCtxTyM, extendCtxTysM
 , extendCtxTmM, extendCtxTmsM
 , extendCtxM, setCtxM
-, termMatchM
 ) where
 
 import Utils.PrettyPrint
 import Utils.Errors
-import Utils.Utils
 
 import Control.Monad.Reader
 import Control.Monad.Except

@@ -542,8 +542,7 @@ elabHsPat _ HsWildPat             binds = do
 elabHsPat exp_ty (HsOrPat p1 p2)  binds = do
   (binds1, fcp1) <- elabHsPat exp_ty p1 binds
   (binds2, fcp2) <- elabHsPat exp_ty p2 binds
-  let zippedBinds = zip (sortBinds binds1) (sortBinds binds2)
-  _ <- mapM_ (\(b1, b2) -> storeEqCs [(toMono $ snd b1) :~: (toMono $ snd b2)]) zippedBinds
+  zipWithM_ (\b1 b2 -> storeEqCs [(toMono $ snd b1) :~: (toMono $ snd b2)]) (sortBinds binds1) (sortBinds binds2)
   return (binds1, FcOrPat fcp1 fcp2)
   where
     toMono :: RnPolyTy -> RnMonoTy
