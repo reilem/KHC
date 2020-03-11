@@ -32,7 +32,8 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Except
 import Control.Arrow (second)
-import Data.List (nub, (\\))
+import Data.List (nub, (\\), sortBy)
+import Data.Function (on)
 
 -- * Create the typechecking environment from the renaming one
 -- ------------------------------------------------------------------------------
@@ -509,42 +510,62 @@ elabHsAlt :: RnMonoTy         {- Type of the scrutinee  -}
           -> RnAlt            {- Case alternative       -}
           -> GenM (FcAlt 'Tc) {- Elaborated alternative -}
 elabHsAlt scr_ty res_ty (HsAlt p rhs) = do
-  (ctx, fc_p)      <- elabHsPat scr_ty p         -- Elaborate the pattern
-  (rhs_ty, fc_rhs) <- setCtxM ctx (elabTerm rhs) -- Type check the right hand side
+  (binds, fc_p)    <- elabHsPat scr_ty p []      -- Elaborate the pattern
+  let (tms, tys)   = unzip binds
+  (rhs_ty, fc_rhs) <- extendCtxTmsM tms tys (elabTerm rhs) -- Type check the right hand side
   storeEqCs        [ res_ty :~: rhs_ty ]         -- All right hand sides should be the same
   return (FcAlt fc_p fc_rhs)
 
+type RnPatBinds = [(RnTmVar, RnPolyTy)]
+
+sortBinds :: RnPatBinds -> RnPatBinds
+sortBinds = sortBy (compare `on` fst)
+
 -- | Elaborate a pattern
-elabHsPat :: RnMonoTy                {- Expected type -}
-          -> RnPat                   {- Pattern       -}
-          -> GenM (TcCtx, FcPat 'Tc) {- Context and elaborated pattern -}
-elabHsPat exp_ty (HsVarPat x)     = do
+elabHsPat :: RnMonoTy                     {- Expected type -}
+          -> RnPat                        {- Pattern       -}
+          -> RnPatBinds                   {- Bindings      -}
+          -> GenM (RnPatBinds, FcPat 'Tc) {- Context and elaborated pattern -}
+elabHsPat exp_ty (HsVarPat x)     binds = do
   a <- TyVar <$> freshRnTyVar KStar              -- Generate fresh type
   storeEqCs [exp_ty :~: a]                       -- Store equivalence
-  ctx <- extendCtxTmM x (monoTyToPolyTy a) (ask) -- Extend context and ask it explicitly
-  return (ctx, FcVarPat $ rnTmVarToFcTmVar x)    -- Return explicit context and elaborated pattern
-elabHsPat exp_ty (HsConPat dc ps) = do
-  (fc_dc, pat_ty, arg_tys) <- elabPatDataCon dc     -- Elaborate data constructor
-  (ctx, fc_ps)             <- elabHsPats arg_tys ps -- Elaborate all patterns together with their matching argument types
-  storeEqCs                [ exp_ty :~: pat_ty ]    -- The expected type must match the pattern type
-  return (ctx, FcConPatNs fc_dc fc_ps)              -- Return total context and elaborate pattern
-elabHsPat _ HsWildPat             = do
+  let binds' = (x, monoTyToPolyTy a) : binds     -- Add new term variable binding to bindings
+  return (binds', FcVarPat $ rnTmVarToFcTmVar x) -- Return explicit context and elaborated pattern
+elabHsPat exp_ty (HsConPat dc ps) binds = do
+  (fc_dc, pat_ty, arg_tys) <- elabPatDataCon dc           -- Elaborate data constructor
+  (binds', fc_ps)          <- elabHsPats arg_tys ps binds -- Elaborate all patterns together with their matching argument types
+  storeEqCs [ exp_ty :~: pat_ty ]                         -- The expected type must match the pattern type
+  return (binds', FcConPatNs fc_dc fc_ps)                 -- Return total context and elaborate pattern
+elabHsPat _ HsWildPat             binds = do
   frsh <- freshFcTmVar
-  ctx  <- ask
-  return (ctx, FcVarPat frsh)
-elabHsPat _ (HsOrPat _ _)         = notImplemented "Or-pattern elaboration not implemented"
+  return (binds, FcVarPat frsh)
+elabHsPat exp_ty (HsOrPat p1 p2)  binds = do
+  (binds1, fcp1) <- elabHsPat exp_ty p1 binds
+  (binds2, fcp2) <- elabHsPat exp_ty p2 binds
+  zipWithM_
+    (\b1 b2 -> storeEqCs [(toMono $ snd b1) :~: (toMono $ snd b2)])
+    (sortBinds binds1)
+    (sortBinds binds2)
+  return (binds1, FcOrPat fcp1 fcp2)
+  where
+    toMono :: RnPolyTy -> RnMonoTy
+    toMono poly = case polyTyToMonoTy poly of
+      Just mono -> mono
+      Nothing   -> panic ("Failed to cast poly type " ++ (render $ ppr poly)
+        ++ " to mono type in elabHsPat for HsOrPat")
 
 -- | Elaborate a list of patterns with corresponding expected types
-elabHsPats :: [RnMonoTy]                {- Expected types -}
-           -> [RnPat]                   {- Patterns       -}
-           -> GenM (TcCtx, [FcPat 'Tc]) {- Context and elaborated patterns -}
-elabHsPats [] []           = (\ctx -> (ctx, [])) <$> ask -- Retrieve context and return it
-elabHsPats (ty:tys) (p:ps) = do
-  (ctx, fc_p)   <- elabHsPat ty p                  -- Elaborate the leading pattern and retrieve new context
-  (ctx', fc_ps) <- setCtxM ctx (elabHsPats tys ps) -- Elaborate remaining patterns with new context
-  return (ctx', fc_p : fc_ps)                      -- Return the total context and elaborated patterns
-elabHsPats [] (_:_)        = panic "elabHsPats was given more types than patterns."
-elabHsPats (_:_) []        = panic "elabHsPats was given more patterns than types."
+elabHsPats :: [RnMonoTy]                     {- Expected types -}
+           -> [RnPat]                        {- Patterns       -}
+           -> RnPatBinds                     {- Bindings       -}
+           -> GenM (RnPatBinds, [FcPat 'Tc]) {- Context and elaborated patterns -}
+elabHsPats []       []     binds = return (binds, []) -- Retrieve context and return it
+elabHsPats (ty:tys) (p:ps) binds = do
+  (binds', fc_p)   <- elabHsPat ty p binds     -- Elaborate the leading pattern and retrieve new bindings
+  (binds'', fc_ps) <- elabHsPats tys ps binds' -- Elaborate remaining patterns with new bindings
+  return (binds'', fc_p : fc_ps)               -- Return the final bindings and elaborated patterns
+elabHsPats [] (_:_)        _ = panic "elabHsPats was given more types than patterns."
+elabHsPats (_:_) []        _ = panic "elabHsPats was given more patterns than types."
 
 -- | Elaborate a pattern data consturctor, return the system F data con, the pattern type and all the arg types
 elabPatDataCon :: RnDataCon -> GenM (FcDataCon, RnMonoTy, [RnMonoTy])

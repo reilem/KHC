@@ -146,6 +146,7 @@ instance SubstVar FcTmVar (FcTerm a) (FcPat a) where
     | x == y            = error "substFcTmVarInPat: Shadowing" -- extra redundancy for safety
     | otherwise         = (FcVarPat y)
   substVar x xtm (FcConPatNs dc ps) = FcConPatNs dc (substVar x xtm ps)
+  substVar x xtm (FcOrPat    p1 p2) = FcOrPat (substVar x xtm p1) (substVar x xtm p2)
 
 -- ------------------------------------------------------------------------------
 
@@ -391,24 +392,38 @@ instance FreshenLclBndrs (FcTerm a) where
 -- | Freshen the (type + term) binders of a System F case alternative
 instance FreshenLclBndrs (FcAlt a) where
   freshenLclBndrs (FcAlt p tm) = do
-    (p', subst) <- freshenPatLclBndrs p
-    tm' <- freshenLclBndrs (subst tm)
+    (p', substs) <- freshenPatLclBndrs p
+    tm' <- freshenLclBndrs (foldr (\(a,b) acc -> substVar a (FcTmVar b) acc) tm substs)
     return (FcAlt p' tm')
 
-
-freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, FcTerm a -> FcTerm a)
+freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, [(FcTmVar, FcTmVar)])
 freshenPatLclBndrs (FcConPat dc xs) = do
   ys  <- mapM (\_ -> freshFcTmVar) xs
-  let subst = map (\(x, y) -> substVar x (FcTmVar y)) (zipExact xs ys)
-  return (FcConPat dc ys, foldr (.) id subst)
+  return (FcConPat dc ys, zip xs ys)
 freshenPatLclBndrs (FcVarPat x) = do
   y <- freshFcTmVar
-  return (FcVarPat y, substVar x (FcTmVar y))
+  return (FcVarPat y, [(x, y)])
 freshenPatLclBndrs (FcConPatNs dc ps) = do
-  (ps', subst) <- foldM freshenPat ([], id) ps
-  return (FcConPatNs dc ps', subst)
+  (ps', substs) <- foldM freshenPat ([], []) ps
+  return (FcConPatNs dc ps', substs)
   where
-    freshenPat :: MonadUnique m => ([FcPat a], FcTerm a -> FcTerm a) -> FcPat a -> m ([FcPat a], FcTerm a -> FcTerm a)
-    freshenPat (ps', subst) p = do
-      (p', subst') <- freshenPatLclBndrs p
-      return (ps' ++ [p'], subst . subst')
+    freshenPat :: MonadUnique m => ([FcPat a], [(FcTmVar, FcTmVar)]) -> FcPat a -> m ([FcPat a], [(FcTmVar, FcTmVar)])
+    freshenPat (ps', substs') p = do
+      (p', substs'') <- freshenPatLclBndrs p
+      return (ps' ++ [p'], substs' ++ substs'')
+freshenPatLclBndrs (FcOrPat p1 p2) = do
+  (p1', substs) <- freshenPatLclBndrs p1
+  let p2' = applySubsts substs p2
+  return (FcOrPat p1' p2', substs)
+  where
+    -- | This is very inefficient, N^2 for FcConPat
+    applySubsts :: [(FcTmVar, FcTmVar)] -> FcPat a -> FcPat a
+    applySubsts []          p = p
+    applySubsts ((x, y):xs) p = apply x y (applySubsts xs p)
+    apply :: FcTmVar -> FcTmVar -> FcPat a -> FcPat a
+    apply a b (FcConPat dc xs)   = FcConPat dc (map (\x -> if a == x then b else x) xs)
+    apply a b (FcVarPat x)
+      | a == x                   = FcVarPat b
+      | otherwise                = FcVarPat x
+    apply a b (FcConPatNs dc ps) = FcConPatNs dc (map (apply a b) ps)
+    apply a b (FcOrPat p11 p12)  = FcOrPat (apply a b p11) (apply a b p12)

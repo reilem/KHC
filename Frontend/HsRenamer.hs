@@ -246,7 +246,7 @@ rnPat (HsOrPat p1 p2)    = do
     orBindings :: [(PsTmVar, RnTmVar)] -> [(PsTmVar, RnTmVar)] -> [(RnTmVar, RnTmVar)]
     orBindings binds1 binds2 = map (\(tm, rnTm) ->
       case find (\bind -> (fst bind) == tm) binds2 of
-        Just bind -> (rnTm, snd bind)
+        Just bind -> (snd bind, rnTm)
         Nothing   -> panic ("Could not find term " ++ (render $ ppr tm) ++ " in or-bindings list " ++ (render $ ppr binds2))
       ) binds1
 
