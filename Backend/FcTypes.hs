@@ -341,8 +341,8 @@ instance PrettyPrint (FcTerm a) where
 
 -- | Pretty print patterns
 instance PrettyPrint (FcPat a) where
-  ppr (FcConPat   dc xs)          = ppr dc <+> hsep (map ppr xs)
-  ppr (FcConPatNs dc ps)          = ppr dc <+> hsep (map ppr ps)
+  ppr (FcConPat   dc xs)          = ppr dc <+> hsep (map pprPar xs)
+  ppr (FcConPatNs dc ps)          = ppr dc <+> hsep (map pprPar ps)
   ppr (FcVarPat   x)              = ppr x
   ppr (FcOrPat    p1 p2)          = pprPar p1 <+> text "||" <+> pprPar p2
   needsParens (FcVarPat   _)      = False
