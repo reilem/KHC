@@ -232,11 +232,6 @@ flatPat (FcOrPat p1 p2)    = flatPat p1 ++ flatPat p2
 flatPat (FcVarPat x)       = [FcVarPat x]
 flatPat (FcConPatNs dc ps) = [FcConPatNs dc ps' | ps' <- cart (map flatPat ps)]
 
--- | Gives every possible combination from the list of lists
-cart :: [[a]] -> [[a]]
-cart []       = pure []
-cart (xs:xss) = concat [[(x:ys) | ys <- cart xss] | x <- xs]
-
 -- | Type check a list of case alternatives
 tcAlts :: FcType -> [FcAlt 'Fc] -> FcM ([FcAlt 'Fc], FcType)
 tcAlts scr_ty alts

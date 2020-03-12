@@ -42,3 +42,8 @@ partition f (x:y:xs)
 areOrPatBindsEqual :: Ord a => [a] -> [a] -> Bool
 areOrPatBindsEqual xs ys = distinct xs && distinct ys &&
   (sort xs == sort ys)
+
+-- | Gives every possible combination from the list of lists
+cart :: [[a]] -> [[a]]
+cart []       = pure []
+cart (xs:xss) = concat [[(x:ys) | ys <- cart xss] | x <- xs]
