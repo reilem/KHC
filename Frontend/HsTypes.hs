@@ -119,7 +119,10 @@ data Term a = TmVar (HsTmVar a)                   -- ^ Term variable
 type PsTerm = Term Sym
 type RnTerm = Term Name
 
-data HsAlt a = HsAlt (HsPat a) (Term a)
+data HsGuard   a = HsGuard   (HsPat a)   (Term a)
+data HsGuarded a = HsGuarded [HsGuard a] (Term a)
+
+data HsAlt a = HsAlt (HsPat a) [HsGuarded a]
 
 type PsAlt = HsAlt Sym
 type RnAlt = HsAlt Name
@@ -141,6 +144,18 @@ type RnPat = HsPat Name
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsAlt a) where
   ppr (HsAlt pat tm) = ppr pat <+> arrow <+> ppr tm
   needsParens _      = True
+
+instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuard a) where
+  ppr (HsGuard p t) = ppr p <+> text "<-" <+> ppr t
+  needsParens _     = False
+
+instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuarded a) where
+  ppr (HsGuarded [] t) = ppr t
+  ppr (HsGuarded gs t) = text "|"
+    <+> (foldl (\acc g -> acc <+> text ", " <+> ppr g) (text "") gs)
+    <+> text "->"
+    <+> ppr t
+  needsParens _        = False
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsPat a) where
   ppr (HsConPat dc xs)        = ppr dc <+> hsep (map pprPar xs)
