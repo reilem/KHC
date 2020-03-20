@@ -281,6 +281,7 @@ pTransPat (PsdAppPat p1 p2) = do
   p2' <- pTransPat p2
   return $ HsConPat dc (xs ++ [p2']) -- NOTE: this is O(n^2) because of the (++), could be O(n)
 
+-- | Wrap the contents of a monad into a singleton array
 one :: Monad f => f a -> f [a]
 one x = x >>= (\x' -> return [x'])
 
@@ -290,22 +291,27 @@ pPat = pTransPat <$> pPatMain >>= \case
   Nothing -> empty
   Just p  -> return p
 
+-- | Parse guards
 pGuards :: PsM [PsGuard]
 pGuards = indent (symbol "|" *> (pOtherwise <|> pGuardsList))
 
+-- | Parse a list of pattern guards
 pGuardsList :: PsM [PsGuard]
 pGuardsList =  sepBy1 (HsGuard <$> pPat <* symbol "<-" <*> pTerm) (symbol ", ")
 
+-- | Parse an otherwise guard into a singleton list
 pOtherwise :: PsM [PsGuard]
 pOtherwise = one (HsOtherwise <$ symbol "otherwise")
 
+-- | Parse an arrow and right hand side term
 pRhs :: PsM PsTerm
 pRhs = symbol "->" *> pTerm
 
-pGuardeds :: PsM [PsGuarded]
-pGuardeds =  one  (HsGuarded <$> pure [] <*> pRhs)
-         <|> some (HsGuarded <$> pGuards <*> pRhs)
+-- | Parse a list of guarded right hand sides
+pGuardedRhsList :: PsM [PsGuarded]
+pGuardedRhsList =  one  (HsGuarded <$> pure [] <*> pRhs)
+               <|> some (HsGuarded <$> pGuards <*> pRhs)
 
 -- | Parse a case alternative
 pAlt :: PsM PsAlt
-pAlt = HsAlt <$> pPat <*> pGuardeds
+pAlt = HsAlt <$> pPat <*> pGuardedRhsList
