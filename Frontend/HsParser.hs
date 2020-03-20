@@ -301,7 +301,7 @@ pRhs :: PsM PsTerm
 pRhs = symbol "->" *> pTerm
 
 pGuardeds :: PsM [PsGuarded]
-pGuardeds =  one (HsGuarded <$> empty <*> pRhs)
+pGuardeds =  one (HsGuarded <$> pure [] <*> pRhs)
          <|> some (HsGuarded <$> pGuards <*> pRhs)
 
 -- | Parse a case alternative
