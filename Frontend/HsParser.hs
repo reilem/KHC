@@ -288,14 +288,21 @@ pPat = pTransPat <$> pPatMain >>= \case
   Just p  -> return p
 
 pGuards :: PsM [PsGuard]
-pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ", ") <|> empty)
+pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ", "))
 
 pGuard :: PsM PsGuard
 pGuard = HsGuard <$> pPat <* symbol "<-" <*> pTerm
 
-pGuardedTms :: PsM [PsGuarded]
-pGuardedTms = some $ HsGuarded <$> pGuards <* symbol "->" <*> pTerm
+one :: Monad f => f a -> f [a]
+one x = x >>= (\x' -> return [x'])
+
+pRhs :: PsM PsTerm
+pRhs = symbol "->" *> pTerm
+
+pGuardeds :: PsM [PsGuarded]
+pGuardeds = one (HsGuarded <$> empty <*> pRhs)
+  <|> some (HsGuarded <$> pGuards <*> pRhs)
 
 -- | Parse a case alternative
 pAlt :: PsM PsAlt
-pAlt = HsAlt <$> pPat <*> pGuardedTms
+pAlt = HsAlt <$> pPat <*> pGuardeds
