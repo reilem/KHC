@@ -281,6 +281,9 @@ pTransPat (PsdAppPat p1 p2) = do
   p2' <- pTransPat p2
   return $ HsConPat dc (xs ++ [p2']) -- NOTE: this is O(n^2) because of the (++), could be O(n)
 
+one :: Monad f => f a -> f [a]
+one x = x >>= (\x' -> return [x'])
+
 -- | Parse a pattern
 pPat :: PsM PsPat
 pPat = pTransPat <$> pPatMain >>= \case
@@ -288,20 +291,19 @@ pPat = pTransPat <$> pPatMain >>= \case
   Just p  -> return p
 
 pGuards :: PsM [PsGuard]
-pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ", "))
+pGuards = indent (symbol "|" *> (pOtherwise <|> pGuardsList))
 
-pGuard :: PsM PsGuard
-pGuard =  HsGuard <$> pPat <* symbol "<-" <*> pTerm
-      <|> HsOtherwise <$ symbol "otherwise"
+pGuardsList :: PsM [PsGuard]
+pGuardsList =  sepBy1 (HsGuard <$> pPat <* symbol "<-" <*> pTerm) (symbol ", ")
 
-one :: Monad f => f a -> f [a]
-one x = x >>= (\x' -> return [x'])
+pOtherwise :: PsM [PsGuard]
+pOtherwise = one (HsOtherwise <$ symbol "otherwise")
 
 pRhs :: PsM PsTerm
 pRhs = symbol "->" *> pTerm
 
 pGuardeds :: PsM [PsGuarded]
-pGuardeds =  one (HsGuarded <$> pure [] <*> pRhs)
+pGuardeds =  one  (HsGuarded <$> pure [] <*> pRhs)
          <|> some (HsGuarded <$> pGuards <*> pRhs)
 
 -- | Parse a case alternative
