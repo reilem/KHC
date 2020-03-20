@@ -6,4 +6,5 @@ data List (a :: *) = Nil | Cons a (List a)
 \x. case x of
     Nil       -> Zero
     Cons x xs
-      | Cons y ys <- x
+      | Cons y ys <- x -> y
+      | otherwise      -> Zero
