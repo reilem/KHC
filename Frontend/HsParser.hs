@@ -288,7 +288,7 @@ pPat = pTransPat <$> pPatMain >>= \case
   Just p  -> return p
 
 pGuards :: PsM [PsGuard]
-pGuards = indent (symbol "|" *> some pGuard <|> empty)
+pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ", ") <|> empty)
 
 pGuard :: PsM PsGuard
 pGuard = HsGuard <$> pPat <* symbol "<-" <*> pTerm
