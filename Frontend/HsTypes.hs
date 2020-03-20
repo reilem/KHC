@@ -120,7 +120,14 @@ type PsTerm = Term Sym
 type RnTerm = Term Name
 
 data HsGuard   a = HsGuard   (HsPat a)   (Term a)
+
+type PsGuard = HsGuard Sym
+type RnGuard = HsGuard Name
+
 data HsGuarded a = HsGuarded [HsGuard a] (Term a)
+
+type PsGuarded = HsGuarded Sym
+type RnGuarded = HsGuarded Name
 
 data HsAlt a = HsAlt (HsPat a) [HsGuarded a]
 

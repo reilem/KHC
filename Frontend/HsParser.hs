@@ -287,6 +287,15 @@ pPat = pTransPat <$> pPatMain >>= \case
   Nothing -> empty
   Just p  -> return p
 
+pGuards :: PsM [PsGuard]
+pGuards = indent (symbol "|" *> some pGuard <|> empty)
+
+pGuard :: PsM PsGuard
+pGuard = HsGuard <$> pPat <* symbol "<-" <*> pTerm
+
+pGuardedTms :: PsM [PsGuarded]
+pGuardedTms = some $ HsGuarded <$> pGuards <* symbol "->" <*> pTerm
+
 -- | Parse a case alternative
 pAlt :: PsM PsAlt
-pAlt = HsAlt <$> pPat <* symbol "->" <*> pTerm
+pAlt = HsAlt <$> pPat <*> pGuardedTms
