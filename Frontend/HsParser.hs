@@ -291,7 +291,8 @@ pGuards :: PsM [PsGuard]
 pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ", "))
 
 pGuard :: PsM PsGuard
-pGuard = HsGuard <$> pPat <* symbol "<-" <*> pTerm
+pGuard =  HsGuard <$> pPat <* symbol "<-" <*> pTerm
+      <|> HsOtherwise <$ symbol "otherwise"
 
 one :: Monad f => f a -> f [a]
 one x = x >>= (\x' -> return [x'])
@@ -300,8 +301,8 @@ pRhs :: PsM PsTerm
 pRhs = symbol "->" *> pTerm
 
 pGuardeds :: PsM [PsGuarded]
-pGuardeds = one (HsGuarded <$> empty <*> pRhs)
-  <|> some (HsGuarded <$> pGuards <*> pRhs)
+pGuardeds =  one (HsGuarded <$> empty <*> pRhs)
+         <|> some (HsGuarded <$> pGuards <*> pRhs)
 
 -- | Parse a case alternative
 pAlt :: PsM PsAlt
