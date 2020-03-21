@@ -7,4 +7,4 @@ data List (a :: *) = Nil | Cons a (List a)
     Nil       -> Zero
     Cons x xs
       | Cons y ys <- x -> y
-      | otherwise      -> Zero
+      | Zero <- Zero   -> Zero

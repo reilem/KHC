@@ -293,15 +293,11 @@ pPat = pTransPat <$> pPatMain >>= \case
 
 -- | Parse guards
 pGuards :: PsM [PsGuard]
-pGuards = indent (symbol "|" *> (pOtherwise <|> pGuardsList))
+pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ", "))
 
 -- | Parse a list of pattern guards
-pGuardsList :: PsM [PsGuard]
-pGuardsList =  sepBy1 (HsGuard <$> pPat <* symbol "<-" <*> pTerm) (symbol ", ")
-
--- | Parse an otherwise guard into a singleton list
-pOtherwise :: PsM [PsGuard]
-pOtherwise = one (HsOtherwise <$ symbol "otherwise")
+pGuard :: PsM PsGuard
+pGuard =  HsGuard <$> pPat <* symbol "<-" <*> pTerm
 
 -- | Parse an arrow and right hand side term
 pRhs :: PsM PsTerm
