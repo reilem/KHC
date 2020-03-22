@@ -299,14 +299,10 @@ pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ", "))
 pGuard :: PsM PsGuard
 pGuard =  HsPatGuard <$> pPat <* symbol "<-" <*> pTerm
 
--- | Parse an arrow and right hand side term
-pRhs :: PsM PsTerm
-pRhs = symbol "->" *> pTerm
-
 -- | Parse a list of guarded right hand sides
 pGuardedRhsList :: PsM [PsGuarded]
-pGuardedRhsList =  one  (HsGuarded <$> pure [] <*> pRhs)
-               <|> some (HsGuarded <$> pGuards <*> pRhs)
+pGuardedRhsList =  one  (HsGuarded <$> pure [] <* symbol "->" <*> pTerm)
+               <|> some (HsGuarded <$> pGuards <* symbol "->" <*> pTerm)
 
 -- | Parse a case alternative
 pAlt :: PsM PsAlt
