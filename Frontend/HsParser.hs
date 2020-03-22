@@ -297,7 +297,7 @@ pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ", "))
 
 -- | Parse a list of pattern guards
 pGuard :: PsM PsGuard
-pGuard =  HsGuard <$> pPat <* symbol "<-" <*> pTerm
+pGuard =  HsPatGuard <$> pPat <* symbol "<-" <*> pTerm
 
 -- | Parse an arrow and right hand side term
 pRhs :: PsM PsTerm

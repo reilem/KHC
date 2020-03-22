@@ -119,12 +119,12 @@ data Term a = TmVar (HsTmVar a)                   -- ^ Term variable
 type PsTerm = Term Sym
 type RnTerm = Term Name
 
-data HsGuard   a = HsGuard (HsPat a) (Term a)
+data HsPatGuard a = HsPatGuard (HsPat a) (Term a)
 
-type PsGuard = HsGuard Sym
-type RnGuard = HsGuard Name
+type PsGuard = HsPatGuard Sym
+type RnGuard = HsPatGuard Name
 
-data HsGuarded a = HsGuarded [HsGuard a] (Term a)
+data HsGuarded a = HsGuarded [HsPatGuard a] (Term a)
 
 type PsGuarded = HsGuarded Sym
 type RnGuarded = HsGuarded Name
@@ -152,8 +152,8 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (HsAlt a) where
   ppr (HsAlt pat tm) = ppr pat <+> arrow <+> ppr tm
   needsParens _      = True
 
-instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuard a) where
-  ppr (HsGuard p t) = ppr p <+> text "<-" <+> ppr t
+instance (Symable a, PrettyPrint a) => PrettyPrint (HsPatGuard a) where
+  ppr (HsPatGuard p t) = ppr p <+> text "<-" <+> ppr t
   needsParens _     = False
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuarded a) where
