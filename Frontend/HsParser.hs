@@ -283,7 +283,7 @@ pTransPat (PsdAppPat p1 p2) = do
 
 -- | Wrap the contents of a monad into a singleton array
 one :: Monad f => f a -> f [a]
-one x = x >>= (\x' -> return [x'])
+one x = pure <$> x
 
 -- | Parse a pattern
 pPat :: PsM PsPat
