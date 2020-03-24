@@ -13,7 +13,7 @@ import Utils.FreeVars
 import Utils.SnocList
 import Utils.PrettyPrint
 
-import Data.List (nub, (\\), intercalate)
+import Data.List (nub, (\\))
 
 -- * Type Constructors
 -- ------------------------------------------------------------------------------
@@ -159,7 +159,7 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuard a) where
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuarded a) where
   ppr (HsGuarded [] t) = ppr t
   ppr (HsGuarded gs t) = text "|"
-    <+> text (intercalate ", " (map (render . ppr) gs))
+    <+> fsep (punctuate comma (map ppr gs))
     <+> text "->"
     <+> ppr t
   needsParens _        = False
