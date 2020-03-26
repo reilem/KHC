@@ -260,6 +260,7 @@ rnAlt (HsAlt pt guardeds) = do
   rnGuardeds    <- extendTmVars binds (mapM rnGuarded guardeds)
   return (HsAlt rnpt rnGuardeds)
 
+-- | Rename a guarded right hand side
 rnGuarded :: PsGuarded -> RnM RnGuarded
 rnGuarded (HsGuarded [] rhs)     = HsGuarded [] <$> rnTerm rhs
 rnGuarded (HsGuarded (g:gs) rhs) = do
@@ -267,14 +268,14 @@ rnGuarded (HsGuarded (g:gs) rhs) = do
   (HsGuarded rngs rnRhs) <- extendTmVars binds (rnGuarded (HsGuarded gs rhs))
   return (HsGuarded (rng:rngs) rnRhs)
 
-rnGuard :: PsGuard -> RnM (RnGuard, [(PsTmVar, RnTmVar)])
+-- | Rename a guard
 rnGuard :: PsGuard -> RnM (RnGuard, RnTmVarBinds)
 rnGuard (HsPatGuard pat tm) = do
   rnTm           <- rnTerm tm
   (rnPat, binds) <- rnPat pat
   return (HsPatGuard rnPat rnTm, binds)
 
--- |
+-- | Check the arity of a data constructor
 dataConArityCheck :: PsDataCon -> [PsPat] -> RnM ()
 dataConArityCheck dc ps = do
   args <- lookupDataConArgs dc
