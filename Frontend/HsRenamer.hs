@@ -253,10 +253,11 @@ rnPat (HsOrPat p1 p2)  = do
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
-rnAlt (HsAlt pt tm) = do
-  (rnpt, binds) <- rnPat pt
-  rntm <- extendTmVars binds (rnTerm tm)
-  return (HsAlt rnpt rntm)
+rnAlt (HsAlt pt gs) = notImplemented "rnAlt"
+  -- do
+  -- (rnpt, binds) <- rnPat pt
+  -- rntm <- extendTmVars binds (rnTerm tm)
+  -- return (HsAlt rnpt rntm)
 
 -- |
 dataConArityCheck :: PsDataCon -> [PsPat] -> RnM ()
