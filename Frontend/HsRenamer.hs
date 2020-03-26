@@ -253,11 +253,23 @@ rnPat (HsOrPat p1 p2)  = do
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
-rnAlt (HsAlt pt gs) = notImplemented "rnAlt"
-  -- do
-  -- (rnpt, binds) <- rnPat pt
-  -- rntm <- extendTmVars binds (rnTerm tm)
-  -- return (HsAlt rnpt rntm)
+rnAlt (HsAlt pt guardeds) = do
+  (rnpt, binds) <- rnPat pt
+  rnGuardeds    <- extendTmVars binds (mapM rnGuarded guardeds)
+  return (HsAlt rnpt rnGuardeds)
+
+rnGuarded :: PsGuarded -> RnM RnGuarded
+rnGuarded (HsGuarded [] rhs)     = HsGuarded [] <$> (rnTerm rhs)
+rnGuarded (HsGuarded (g:gs) rhs) = do
+  (rng, binds)           <- rnGuard g
+  (HsGuarded rngs rnRhs) <- extendTmVars binds (rnGuarded (HsGuarded gs rhs))
+  return (HsGuarded (rng:rngs) rnRhs)
+
+rnGuard :: PsGuard -> RnM (RnGuard, [(PsTmVar, RnTmVar)])
+rnGuard (HsPatGuard pat rhs) = do
+  rnRhs          <- rnTerm rhs
+  (rnPat, binds) <- rnPat pat
+  return (HsPatGuard rnPat rnRhs, binds)
 
 -- |
 dataConArityCheck :: PsDataCon -> [PsPat] -> RnM ()
