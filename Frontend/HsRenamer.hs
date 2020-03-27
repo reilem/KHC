@@ -195,6 +195,8 @@ rnPolyTy (PPoly a ty) = do
 -- * Rename Terms
 -- ------------------------------------------------------------------------------
 
+type RnTmVarBinds = [(PsTmVar, RnTmVar)]
+
 -- | Rename a term variable
 rnTmVar :: PsTmVar -> RnM RnTmVar
 rnTmVar psx = mkRnTmVar <$> rnSym (symOf psx)
@@ -216,7 +218,7 @@ rnTerm (TmLet x tm1 tm2)  = do
 rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
 
 -- | Rename a pattern
-rnPat :: PsPat -> RnM (RnPat, [(PsTmVar, RnTmVar)])
+rnPat :: PsPat -> RnM (RnPat, RnTmVarBinds)
 rnPat (HsConPat dc ps) = do
   dataConArityCheck dc ps
   rndc                <- lookupDataCon dc
@@ -253,13 +255,27 @@ rnPat (HsOrPat p1 p2)  = do
 
 -- | Rename a case alternative
 rnAlt :: PsAlt -> RnM RnAlt
-rnAlt (HsAlt pt gs) = notImplemented "rnAlt"
-  -- do
-  -- (rnpt, binds) <- rnPat pt
-  -- rntm <- extendTmVars binds (rnTerm tm)
-  -- return (HsAlt rnpt rntm)
+rnAlt (HsAlt pt guardeds) = do
+  (rnpt, binds) <- rnPat pt
+  rnGuardeds    <- extendTmVars binds (mapM rnGuarded guardeds)
+  return (HsAlt rnpt rnGuardeds)
 
--- |
+-- | Rename a guarded right hand side
+rnGuarded :: PsGuarded -> RnM RnGuarded
+rnGuarded (HsGuarded [] rhs)     = HsGuarded [] <$> rnTerm rhs
+rnGuarded (HsGuarded (g:gs) rhs) = do
+  (rng, binds)           <- rnGuard g
+  (HsGuarded rngs rnRhs) <- extendTmVars binds (rnGuarded (HsGuarded gs rhs))
+  return (HsGuarded (rng:rngs) rnRhs)
+
+-- | Rename a guard
+rnGuard :: PsGuard -> RnM (RnGuard, RnTmVarBinds)
+rnGuard (HsPatGuard pat tm) = do
+  rnTm           <- rnTerm tm
+  (rnPat, binds) <- rnPat pat
+  return (HsPatGuard rnPat rnTm, binds)
+
+-- | Check the arity of a data constructor
 dataConArityCheck :: PsDataCon -> [PsPat] -> RnM ()
 dataConArityCheck dc ps = do
   args <- lookupDataConArgs dc

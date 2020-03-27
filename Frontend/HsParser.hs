@@ -294,7 +294,7 @@ pPat = pTransPat <$> pPatMain >>= \case
 
 -- | Parse guards
 pGuards :: PsM [PsGuard]
-pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ", "))
+pGuards = indent (symbol "|" *> sepBy1 pGuard (symbol ","))
 
 -- | Parse a list of pattern guards
 pGuard :: PsM PsGuard
