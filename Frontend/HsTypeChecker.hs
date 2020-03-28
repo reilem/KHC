@@ -777,7 +777,8 @@ elabClsDecl (ClsD rn_cs cls (a :| _) method method_ty) = do
     let fc_tm = FcTmTyAbs (rnTyVarToFcTyVar a) $
                   FcTmAbs da fc_cls_head $
                     FcTmCaseTc (panic "class decl scr type access") (panic "class decl rhs type access") (FcTmVar da)
-                             [FcAlt (FcConPatNs dc (map FcVarPat xs)) (FcTmVar (xs !! i))]
+                             [FcAltTc (FcConPatNs dc (map FcVarPat xs))
+                                      [FcGuarded [] (FcTmVar (xs !! i))]]
     let proj = FcValBind d fc_scheme fc_tm
 
     return (d :| scheme, proj) -- error "NOT IMPLEMENTED YET"
@@ -811,8 +812,8 @@ elabMethodSig method a cls sigma = do
   let fc_method_rhs = fcTmTyAbs (map rnTyVarToFcTyVar bs) $
                         fcTmAbs dbinds $
                           FcTmCaseTc (panic "method sig scr type access") (panic "method sig rhs type access") (FcTmVar (head ds))
-                                   [FcAlt (FcConPatNs dc (map FcVarPat xs))
-                                          (fcDictApp (fcTmTyApp (FcTmVar (last xs)) (tail rn_bs)) (tail ds))]
+                                   [FcAltTc (FcConPatNs dc (map FcVarPat xs))
+                                            [FcGuarded [] (fcDictApp (fcTmTyApp (FcTmVar (last xs)) (tail rn_bs)) (tail ds))]]
 
   let fc_val_bind = FcValBind (rnTmVarToFcTmVar method) fc_method_ty fc_method_rhs
 
