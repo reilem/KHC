@@ -7,6 +7,6 @@ data List (a :: *) = Nil | Cons a (List a)
     Nil       -> Zero
     Cons x xs
       | Cons y ys <- xs -> y
-        | Cons y ys <- xy -> y
+        | Cons z zs <- ys -> z
         | Zero      <- y  -> Zero
       | Zero <- Zero   -> Zero
