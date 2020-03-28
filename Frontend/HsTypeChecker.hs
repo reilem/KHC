@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-} -- George says: God I hate this flag
@@ -504,29 +505,44 @@ elabTmCase scr alts = do
   fc_rhs_ty <- liftGenM (elabMonoTy rhs_ty)
   return (rhs_ty, FcTmCaseTc fc_scr_ty fc_rhs_ty fc_scr fc_alts)
 
+type RnBinds = [(RnTmVar, RnPolyTy)]
+
+sortBinds :: RnBinds -> RnBinds
+sortBinds = sortBy (compare `on` fst)
+
 -- | Elaborate a case alternative
 elabHsAlt :: RnMonoTy         {- Type of the scrutinee  -}
           -> RnMonoTy         {- Result type            -}
           -> RnAlt            {- Case alternative       -}
           -> GenM (FcAlt 'Tc) {- Elaborated alternative -}
-elabHsAlt scr_ty res_ty (HsAlt p rhs) = notImplemented "elabHsAlt"
-  -- do
-  -- (binds, fc_p)    <- elabHsPat scr_ty p []      -- Elaborate the pattern
-  -- let (tms, tys)   = unzip binds
-  -- (rhs_ty, fc_rhs) <- extendCtxTmsM tms tys (elabTerm rhs) -- Type check the right hand side
-  -- storeEqCs        [ res_ty :~: rhs_ty ]         -- All right hand sides should be the same
-  -- return (FcAlt fc_p fc_rhs)
+elabHsAlt scr_ty res_ty (HsAlt p gRs) = do
+  (binds, fc_p) <- elabHsPat scr_ty p []      -- Elaborate the pattern
+  fc_gRs        <- extendTmVars binds (mapM (elabHsGuarded res_ty) gRs) -- Type check the right hand side
+  return (FcAltTc fc_p fc_gRs)
 
-type RnPatBinds = [(RnTmVar, RnPolyTy)]
+elabHsGuarded :: RnMonoTy             {- Result type -}
+              -> RnGuarded            {- Guarded rhs -}
+              -> GenM (FcGuarded 'Tc) {- Elaborated guarded rhs -}
+elabHsGuarded res_ty (HsGuarded []     rhs) = do
+  (rhs_ty, fc_rhs) <- elabTerm rhs
+  storeEqCs [res_ty :~: rhs_ty]
+  return (FcGuarded [] fc_rhs)
+elabHsGuarded res_ty (HsGuarded (g:gs) rhs) = do
+  (binds, fc_g)            <- elabHsGuard g
+  (FcGuarded fc_gs fc_rhs) <- extendTmVars binds (elabHsGuarded res_ty (HsGuarded gs rhs))
+  return (FcGuarded (fc_g : fc_gs) fc_rhs)
 
-sortBinds :: RnPatBinds -> RnPatBinds
-sortBinds = sortBy (compare `on` fst)
+elabHsGuard :: RnGuard -> GenM (RnBinds, FcGuard 'Tc)
+elabHsGuard (HsPatGuard p tm) = do
+  (tm_ty, fc_tm) <- elabTerm tm
+  (binds, fc_p)  <- elabHsPat tm_ty p []
+  return (binds, FcPatGuard fc_p fc_tm)
 
 -- | Elaborate a pattern
-elabHsPat :: RnMonoTy                     {- Expected type -}
-          -> RnPat                        {- Pattern       -}
-          -> RnPatBinds                   {- Bindings      -}
-          -> GenM (RnPatBinds, FcPat 'Tc) {- Context and elaborated pattern -}
+elabHsPat :: RnMonoTy                  {- Expected type -}
+          -> RnPat                     {- Pattern       -}
+          -> RnBinds                   {- Bindings      -}
+          -> GenM (RnBinds, FcPat 'Tc) {- Context and elaborated pattern -}
 elabHsPat exp_ty (HsVarPat x)     binds = do
   a <- TyVar <$> freshRnTyVar KStar              -- Generate fresh type
   storeEqCs [exp_ty :~: a]                       -- Store equivalence
@@ -556,10 +572,10 @@ elabHsPat exp_ty (HsOrPat p1 p2)  binds = do
         ++ " to mono type in elabHsPat for HsOrPat")
 
 -- | Elaborate a list of patterns with corresponding expected types
-elabHsPats :: [RnMonoTy]                     {- Expected types -}
-           -> [RnPat]                        {- Patterns       -}
-           -> RnPatBinds                     {- Bindings       -}
-           -> GenM (RnPatBinds, [FcPat 'Tc]) {- Context and elaborated patterns -}
+elabHsPats :: [RnMonoTy]                  {- Expected types -}
+           -> [RnPat]                     {- Patterns       -}
+           -> RnBinds                     {- Bindings       -}
+           -> GenM (RnBinds, [FcPat 'Tc]) {- Context and elaborated patterns -}
 elabHsPats []       []     binds = return (binds, []) -- Retrieve context and return it
 elabHsPats (ty:tys) (p:ps) binds = do
   (binds', fc_p)   <- elabHsPat ty p binds     -- Elaborate the leading pattern and retrieve new bindings
@@ -591,6 +607,11 @@ rnTyVarsToFcTypes = map rnTyVarToFcType
 -- | Covert a renamed term variable to a System F term
 rnTmVarToFcTerm :: RnTmVar -> (FcTerm 'Tc)
 rnTmVarToFcTerm = FcTmVar . rnTmVarToFcTmVar
+
+-- | Add the rn binds to the context
+extendTmVars :: RnBinds -> GenM a -> GenM a
+extendTmVars binds m = extendCtxTmsM xs xs' m
+  where (xs,xs') = unzip binds
 
 -- * Type Unification
 -- ------------------------------------------------------------------------------
