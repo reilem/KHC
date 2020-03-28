@@ -1,6 +1,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
 {-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE GADTs                  #-}
 {-# LANGUAGE UndecidableInstances   #-}
@@ -400,14 +401,35 @@ instance FreshenLclBndrs (FcTerm a) where
   freshenLclBndrs (FcTmCaseTc ty1 ty2 tm cs) = FcTmCaseTc <$> freshenLclBndrs ty1 <*> freshenLclBndrs ty2 <*> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
   freshenLclBndrs (FcTmERROR s ty)   = FcTmERROR s <$> freshenLclBndrs ty
 
+type BndrSubsts = [(FcTmVar, FcTmVar)]
+
+doSubsts :: SubstVar FcTmVar (FcTerm a) b => BndrSubsts -> b -> b
+doSubsts ss x = foldr (\(a, b) acc -> substVar a (FcTmVar b) acc) x ss
+
 -- | Freshen the (type + term) binders of a System F case alternative
 instance FreshenLclBndrs (FcAlt a) where
   freshenLclBndrs (FcAltFc p tm) = do
     (p', substs) <- freshenPatLclBndrs p
-    tm' <- freshenLclBndrs (foldr (\(a,b) acc -> substVar a (FcTmVar b) acc) tm substs)
+    tm' <- freshenLclBndrs (doSubsts substs tm)
     return (FcAltFc p' tm')
+  freshenLclBndrs (FcAltTc p gRs) = do
+    (p', substs) <- freshenPatLclBndrs p
+    gRs'         <- mapM freshenLclBndrs (map (doSubsts substs) gRs)
+    return (FcAltTc p' gRs')
 
-freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, [(FcTmVar, FcTmVar)])
+instance FreshenLclBndrs (FcGuarded a) where
+  freshenLclBndrs (FcGuarded []     tm) = return (FcGuarded [] tm)
+  freshenLclBndrs (FcGuarded (g:gs) tm) = do
+    (g', substs)        <- freshenGuardLclBndrs g
+    (FcGuarded gs' tm') <- freshenLclBndrs (FcGuarded (map (doSubsts substs) gs) (doSubsts substs tm))
+    return (FcGuarded (g' : gs') tm')
+
+freshenGuardLclBndrs :: MonadUnique m => FcGuard a -> m (FcGuard a, BndrSubsts)
+freshenGuardLclBndrs (FcPatGuard p tm) = do
+  (p', substs) <- freshenPatLclBndrs p
+  return (FcPatGuard p' tm, substs)
+
+freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, BndrSubsts)
 freshenPatLclBndrs (FcConPat dc xs) = do
   ys  <- mapM (\_ -> freshFcTmVar) xs
   return (FcConPat dc ys, zip xs ys)
