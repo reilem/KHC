@@ -179,11 +179,11 @@ data FcTerm (a :: Phase) where
 -- you do it means that something is probably wrong (the only setting where you
 -- need stuff like this is for optimizations).
 
-data FcGuard where
-  FcPatGuard :: FcPat 'Tc -> FcTerm 'Tc -> FcGuard
+data FcGuard (a :: Phase) where
+  FcPatGuard :: FcPat 'Tc -> FcTerm 'Tc -> FcGuard 'Tc
 
-data FcGuarded where
-  FcGuarded :: [FcGuard] -> FcTerm 'Tc -> FcGuarded
+data FcGuarded (a :: Phase) where
+  FcGuarded :: [FcGuard 'Tc] -> FcTerm 'Tc -> FcGuarded 'Tc
 
 -- | Patterns
 data FcPat (a :: Phase) where
@@ -194,7 +194,7 @@ data FcPat (a :: Phase) where
 
 -- | Case alternative(s)
 data FcAlt (a :: Phase) where
-  FcAltTc :: FcPat 'Tc -> [FcGuarded] -> FcAlt 'Tc
+  FcAltTc :: FcPat 'Tc -> [FcGuarded 'Tc] -> FcAlt 'Tc
   FcAltFc :: FcPat 'Fc -> FcTerm 'Fc  -> FcAlt 'Fc
 
 type FcAlts a = [FcAlt a]
@@ -271,7 +271,7 @@ instance ContainsFreeTyVars (FcAlt a) FcTyVar where
   ftyvsOf (FcAltFc _pat tm)  = ftyvsOf tm
   ftyvsOf (FcAltTc _pat gRs) = concatMap ftyvsOf gRs
 
-instance ContainsFreeTyVars (FcGuarded) FcTyVar where
+instance ContainsFreeTyVars (FcGuarded a) FcTyVar where
   ftyvsOf (FcGuarded _ rhs) = ftyvsOf rhs
 
 -- * Pretty printing
@@ -367,13 +367,13 @@ instance PrettyPrint (FcAlt a) where
   ppr (FcAltTc p gRs) = ppr p <+> (vcat $ map ppr gRs)
   needsParens _    = True
 
-instance PrettyPrint (FcGuarded) where
+instance PrettyPrint (FcGuarded a) where
   ppr (FcGuarded gs tm) = fsep (punctuate comma (map ppr gs))
     <+> arrow
     <+> ppr tm
   needsParens _ = False
 
-instance PrettyPrint (FcGuard) where
+instance PrettyPrint (FcGuard a) where
   ppr (FcPatGuard p tm) = ppr p <+> larrow <+> ppr tm
   needsParens _ = False
 
