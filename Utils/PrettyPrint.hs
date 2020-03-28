@@ -10,7 +10,7 @@ module Utils.PrettyPrint
 , text, int, integer, rational, double, float, char
 , empty, blankLine, semi, comma, colon, space, equals
 , lparen, rparen, lbrack, rbrack, lbrace, rbrace
-, underscore, dcolon, arrow, darrow, dot, backslash
+, underscore, dcolon, arrow, larrow, darrow, dot, backslash
 
   -- Render a document
 , render, renderError, renderWithColor
@@ -163,10 +163,11 @@ rbrack = liftDoc P.rbrack
 lbrace = liftDoc P.lbrace
 rbrace = liftDoc P.rbrace
 
-underscore, dcolon, arrow, darrow, dot, backslash :: Doc
+underscore, dcolon, arrow, larrow, darrow, dot, backslash :: Doc
 underscore = liftDoc (P.char '_')
 dcolon     = colorDoc yellow $ liftDoc (P.text "::")
 arrow      = colorDoc yellow $ liftDoc (P.text "->")
+larrow     = colorDoc yellow $ liftDoc (P.text "<-")
 darrow     = colorDoc yellow $ liftDoc (P.text "=>")
 dot        = colorDoc yellow $ liftDoc (P.char '.')
 backslash  = colorDoc yellow $ liftDoc (P.char '\\')

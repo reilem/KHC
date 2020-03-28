@@ -179,6 +179,12 @@ data FcTerm (a :: Phase) where
 -- you do it means that something is probably wrong (the only setting where you
 -- need stuff like this is for optimizations).
 
+data FcGuard where
+  FcPatGuard :: FcPat 'Tc -> FcTerm 'Tc -> FcGuard
+
+data FcGuarded where
+  FcGuarded :: [FcGuard] -> FcTerm 'Tc -> FcGuarded
+
 -- | Patterns
 data FcPat (a :: Phase) where
   FcConPat    :: FcDataCon -> [FcTmVar]   -> FcPat 'Fc
@@ -188,7 +194,8 @@ data FcPat (a :: Phase) where
 
 -- | Case alternative(s)
 data FcAlt (a :: Phase) where
-  FcAlt :: FcPat a -> FcTerm a -> FcAlt a
+  FcAltTc :: FcPat 'Tc -> [FcGuarded] -> FcAlt 'Tc
+  FcAltFc :: FcPat 'Fc -> FcTerm 'Fc  -> FcAlt 'Fc
 
 type FcAlts a = [FcAlt a]
 
@@ -261,7 +268,11 @@ instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmERROR _err ty)    = ftyvsOf ty
 
 instance ContainsFreeTyVars (FcAlt a) FcTyVar where
-  ftyvsOf (FcAlt _pat tm) = ftyvsOf tm
+  ftyvsOf (FcAltFc _pat tm)  = ftyvsOf tm
+  ftyvsOf (FcAltTc _pat gRs) = concatMap ftyvsOf gRs
+
+instance ContainsFreeTyVars (FcGuarded) FcTyVar where
+  ftyvsOf (FcGuarded _ rhs) = ftyvsOf rhs
 
 -- * Pretty printing
 -- ----------------------------------------------------------------------------
@@ -352,8 +363,19 @@ instance PrettyPrint (FcPat a) where
 
 -- | Pretty print case alternatives
 instance PrettyPrint (FcAlt a) where
-  ppr (FcAlt p tm) = ppr p <+> arrow <+> ppr tm
+  ppr (FcAltFc p tm)  = ppr p <+> arrow <+> ppr tm
+  ppr (FcAltTc p gRs) = ppr p <+> (vcat $ map ppr gRs)
   needsParens _    = True
+
+instance PrettyPrint (FcGuarded) where
+  ppr (FcGuarded gs tm) = fsep (punctuate comma (map ppr gs))
+    <+> arrow
+    <+> ppr tm
+  needsParens _ = False
+
+instance PrettyPrint (FcGuard) where
+  ppr (FcPatGuard p tm) = ppr p <+> larrow <+> ppr tm
+  needsParens _ = False
 
 -- | Pretty print data declarations
 instance PrettyPrint FcDataDecl where
