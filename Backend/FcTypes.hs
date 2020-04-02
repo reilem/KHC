@@ -272,7 +272,16 @@ instance ContainsFreeTyVars (FcAlt a) FcTyVar where
   ftyvsOf (FcAltTc _pat gRs) = concatMap ftyvsOf gRs
 
 instance ContainsFreeTyVars (FcGuarded a) FcTyVar where
-  ftyvsOf (FcGuarded _ rhs) = ftyvsOf rhs
+  ftyvsOf (FcGuarded gs rhs) = concatMap ftyvsOf gs ++ ftyvsOf rhs
+
+instance ContainsFreeTyVars (FcGuard a) FcTyVar where
+  ftyvsOf (FcPatGuard p e) = ftyvsOf p ++ ftyvsOf e
+
+instance ContainsFreeTyVars (FcPat a) FcTyVar where
+  ftyvsOf (FcConPat   _dc _xs) = []
+  ftyvsOf (FcConPatNs _dc _ps) = []
+  ftyvsOf (FcVarPat   _x)      = []
+  ftyvsOf (FcOrPat    _p1 _p2) = []
 
 -- * Pretty printing
 -- ----------------------------------------------------------------------------
