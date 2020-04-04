@@ -149,7 +149,7 @@ type PsPat = HsPat Sym
 type RnPat = HsPat Name
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsAlt a) where
-  ppr (HsAlt pat tm) = ppr pat <+> arrow <+> ppr tm
+  ppr (HsAlt pat tm) = ppr pat <+> rarrow <+> ppr tm
   needsParens _      = True
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuard a) where
@@ -612,8 +612,8 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (HsTyPat a) where
 instance (Symable a, PrettyPrint a) => PrettyPrint (MonoTy a) where
   ppr ty | Just (ty1, ty2) <- isHsArrowTy ty
          = case isHsArrowTy ty1 of
-             Just {} -> pprPar ty1 <+> arrow <+> ppr ty2
-             Nothing -> ppr ty1    <+> arrow <+> ppr ty2
+             Just {} -> pprPar ty1 <+> rarrow <+> ppr ty2
+             Nothing -> ppr ty1    <+> rarrow <+> ppr ty2
   ppr (TyCon tc)      = ppr tc
   ppr (TyApp ty1 ty2)
     | TyApp {} <- ty1 = ppr ty1    <+> pprPar ty2

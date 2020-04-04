@@ -11,7 +11,7 @@ data Kind = KStar | KArr Kind Kind
 
 instance PrettyPrint Kind where
   ppr KStar        = colorDoc yellow (text "*")
-  ppr (KArr k1 k2) = pprPar k1 <+> arrow <+> pprPar k2
+  ppr (KArr k1 k2) = pprPar k1 <+> rarrow <+> pprPar k2
 
   needsParens KStar     = False
   needsParens (KArr {}) = True

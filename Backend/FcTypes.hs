@@ -268,8 +268,8 @@ instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmERROR _err ty)    = ftyvsOf ty
 
 instance ContainsFreeTyVars (FcAlt a) FcTyVar where
-  ftyvsOf (FcAltFc _pat tm)  = ftyvsOf tm
-  ftyvsOf (FcAltTc _pat gRs) = concatMap ftyvsOf gRs
+  ftyvsOf (FcAltFc pat tm)  = ftyvsOf pat ++ ftyvsOf tm
+  ftyvsOf (FcAltTc pat gRs) = ftyvsOf pat ++ concatMap ftyvsOf gRs
 
 instance ContainsFreeTyVars (FcGuarded a) FcTyVar where
   ftyvsOf (FcGuarded gs rhs) = concatMap ftyvsOf gs ++ ftyvsOf rhs
@@ -279,9 +279,9 @@ instance ContainsFreeTyVars (FcGuard a) FcTyVar where
 
 instance ContainsFreeTyVars (FcPat a) FcTyVar where
   ftyvsOf (FcConPat   _dc _xs) = []
-  ftyvsOf (FcConPatNs _dc _ps) = []
+  ftyvsOf (FcConPatNs _dc ps)  = concatMap ftyvsOf ps
   ftyvsOf (FcVarPat   _x)      = []
-  ftyvsOf (FcOrPat    _p1 _p2) = []
+  ftyvsOf (FcOrPat    p1 p2)   = ftyvsOf p1 ++ ftyvsOf p2
 
 -- * Pretty printing
 -- ----------------------------------------------------------------------------
@@ -303,7 +303,7 @@ instance PrettyPrint FcType where
          , let d2 = if isJust (isFcArrowTy ty2) || isFcTyApp ty2
                       then ppr ty2
                       else pprPar ty2
-         = d1 <+> arrow <+> d2
+         = d1 <+> rarrow <+> d2
 
   ppr (FcTyVar a)       = ppr a
   ppr (FcTyAbs a ty)    = text "forall" <+> ppr a <> dot <+> ppr ty
@@ -346,12 +346,12 @@ instance PrettyPrint (FcTerm a) where
                                   2 (vcat $ map ppr cs)
   ppr (FcTmCaseTc _ _ tm cs) = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
-  ppr (FcTmERROR s ty)    = text "ERROR" <+> doubleQuotes (text s) <+> dcolon <+> ppr ty
+  ppr (FcTmERROR s ty)       = text "ERROR" <+> doubleQuotes (text s) <+> dcolon <+> ppr ty
 
   needsParens (FcTmApp     {}) = True
   needsParens (FcTmTyApp   {}) = True
   needsParens (FcTmLet     {}) = True
-  needsParens (FcTmCaseFc    {}) = True
+  needsParens (FcTmCaseFc  {}) = True
   needsParens (FcTmCaseTc  {}) = True
   needsParens (FcTmAbs     {}) = True
   needsParens (FcTmVar     {}) = False
@@ -372,13 +372,14 @@ instance PrettyPrint (FcPat a) where
 
 -- | Pretty print case alternatives
 instance PrettyPrint (FcAlt a) where
-  ppr (FcAltFc p tm)  = ppr p <+> arrow <+> ppr tm
-  ppr (FcAltTc p gRs) = ppr p <+> (vcat $ map ppr gRs)
+  ppr (FcAltFc p tm)  = ppr p <+> rarrow <+> ppr tm
+  ppr (FcAltTc p gRs) = hang (ppr p) 2 (vcat $ map ppr gRs)
   needsParens _    = True
 
 instance PrettyPrint (FcGuarded a) where
-  ppr (FcGuarded gs tm) = fsep (punctuate comma (map ppr gs))
-    <+> arrow
+  ppr (FcGuarded gs tm) = bar <+>
+    fsep (punctuate comma (map ppr gs))
+    <+> rarrow
     <+> ppr tm
   needsParens _ = False
 
