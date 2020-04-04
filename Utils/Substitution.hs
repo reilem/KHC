@@ -106,12 +106,21 @@ instance SubstVar FcTyVar FcType (FcTerm a) where
 
 -- | Substitute a type variable for a type in a case alternative
 instance SubstVar FcTyVar FcType (FcAlt a) where
-  substVar a ty (FcAltFc p tm)  = FcAltFc p (substVar a ty tm)
+  substVar a ty (FcAltFc p tm)  = FcAltFc (substVar a ty p) (substVar a ty tm)
   -- GEORGE: Now the patterns do not bind type variables so we don't have to check for shadowing here.
-  substVar a ty (FcAltTc p gRs) = FcAltTc p (map (substVar a ty) gRs)
+  substVar a ty (FcAltTc p gRs) = FcAltTc (substVar a ty p) (map (substVar a ty) gRs)
 
 instance SubstVar FcTyVar FcType (FcGuarded a) where
   substVar a ty (FcGuarded gs tm) = FcGuarded gs (substVar a ty tm)
+
+instance SubstVar FcTyVar FcType (FcGuard a) where
+  substVar a ty (FcPatGuard p tm) = FcPatGuard (substVar a ty p) (substVar a ty tm)
+
+instance SubstVar FcTyVar FcType (FcPat a) where
+  substVar _a _ty (FcConPat dc xs)   = FcConPat dc xs
+  substVar _a _ty (FcConPatNs dc ps) = FcConPatNs dc ps
+  substVar _a _ty (FcVarPat x)       = FcVarPat x
+  substVar a ty (FcOrPat p1 p2)      = FcOrPat (substVar a ty p1) (substVar a ty p2)
 
 -- * Target Language SubstVar Instances (Term Substitution)
 -- ------------------------------------------------------------------------------
@@ -418,16 +427,17 @@ instance FreshenLclBndrs (FcAlt a) where
     return (FcAltTc p' gRs')
 
 instance FreshenLclBndrs (FcGuarded a) where
-  freshenLclBndrs (FcGuarded []     tm) = return (FcGuarded [] tm)
+  freshenLclBndrs (FcGuarded []     tm) = FcGuarded [] <$> freshenLclBndrs tm
   freshenLclBndrs (FcGuarded (g:gs) tm) = do
     (g', substs)        <- freshenGuardLclBndrs g
-    (FcGuarded gs' tm') <- freshenLclBndrs (FcGuarded (map (doSubsts substs) gs) (doSubsts substs tm))
+    FcGuarded gs' tm' <- freshenLclBndrs (FcGuarded (map (doSubsts substs) gs) (doSubsts substs tm))
     return (FcGuarded (g' : gs') tm')
 
 freshenGuardLclBndrs :: MonadUnique m => FcGuard a -> m (FcGuard a, BndrSubsts)
 freshenGuardLclBndrs (FcPatGuard p tm) = do
   (p', substs) <- freshenPatLclBndrs p
-  return (FcPatGuard p' tm, substs)
+  tm'          <- freshenLclBndrs tm
+  return (FcPatGuard p' tm', substs)
 
 freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, BndrSubsts)
 freshenPatLclBndrs (FcConPat dc xs) = do
