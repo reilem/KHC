@@ -374,18 +374,19 @@ instance PrettyPrint (FcPat a) where
 instance PrettyPrint (FcAlt a) where
   ppr (FcAltFc p tm)  = ppr p <+> rarrow <+> ppr tm
   ppr (FcAltTc p gRs) = hang (ppr p) 2 (vcat $ map ppr gRs)
-  needsParens _    = True
+  needsParens _       = True
 
 instance PrettyPrint (FcGuarded a) where
+  ppr (FcGuarded [] t)  = rarrow <+> ppr t
   ppr (FcGuarded gs tm) = bar <+>
     fsep (punctuate comma (map ppr gs))
     <+> rarrow
     <+> ppr tm
-  needsParens _ = False
+  needsParens _         = False
 
 instance PrettyPrint (FcGuard a) where
   ppr (FcPatGuard p tm) = ppr p <+> larrow <+> ppr tm
-  needsParens _ = False
+  needsParens _         = False
 
 -- | Pretty print data declarations
 instance PrettyPrint FcDataDecl where
