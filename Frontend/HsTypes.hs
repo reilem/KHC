@@ -149,18 +149,18 @@ type PsPat = HsPat Sym
 type RnPat = HsPat Name
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsAlt a) where
-  ppr (HsAlt pat tm) = ppr pat <+> arrow <+> ppr tm
-  needsParens _      = True
+  ppr (HsAlt pat gRs) = hang (ppr pat) 2 (vcat $ map ppr gRs)
+  needsParens _       = True
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuard a) where
-  ppr (HsPatGuard p t) = ppr p <+> text "<-" <+> ppr t
-  needsParens _     = False
+  ppr (HsPatGuard p t) = ppr p <+> larrow <+> ppr t
+  needsParens _        = False
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuarded a) where
-  ppr (HsGuarded [] t) = ppr t
-  ppr (HsGuarded gs t) = text "|"
+  ppr (HsGuarded [] t) = rarrow <+> ppr t
+  ppr (HsGuarded gs t) = bar
     <+> fsep (punctuate comma (map ppr gs))
-    <+> text "->"
+    <+> rarrow
     <+> ppr t
   needsParens _        = False
 
@@ -612,8 +612,8 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (HsTyPat a) where
 instance (Symable a, PrettyPrint a) => PrettyPrint (MonoTy a) where
   ppr ty | Just (ty1, ty2) <- isHsArrowTy ty
          = case isHsArrowTy ty1 of
-             Just {} -> pprPar ty1 <+> arrow <+> ppr ty2
-             Nothing -> ppr ty1    <+> arrow <+> ppr ty2
+             Just {} -> pprPar ty1 <+> rarrow <+> ppr ty2
+             Nothing -> ppr ty1    <+> rarrow <+> ppr ty2
   ppr (TyCon tc)      = ppr tc
   ppr (TyApp ty1 ty2)
     | TyApp {} <- ty1 = ppr ty1    <+> pprPar ty2

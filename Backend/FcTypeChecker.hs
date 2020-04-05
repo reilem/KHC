@@ -224,13 +224,14 @@ tcType (FcTyCon tc) = lookupTyConKindM tc
 
 -- | Flatten out any or patterns in the alternatives
 flatAlts :: FcAlts 'Tc -> FcAlts 'Tc
-flatAlts = concatMap (\(FcAlt p rhs) -> [FcAlt p' rhs | p' <- flatPat p])
+flatAlts = notImplemented "flatAlts"
+  -- concatMap (\(FcAlt p rhs) -> [FcAlt p' rhs | p' <- flatPat p])
 
 -- | Flatten out any or patterns in the pattern
-flatPat :: FcPat 'Tc -> [FcPat 'Tc]
-flatPat (FcOrPat p1 p2)    = flatPat p1 ++ flatPat p2
-flatPat (FcVarPat x)       = [FcVarPat x]
-flatPat (FcConPatNs dc ps) = [FcConPatNs dc ps' | ps' <- cart (map flatPat ps)]
+-- flatPat :: FcPat 'Tc -> [FcPat 'Tc]
+-- flatPat (FcOrPat p1 p2)    = flatPat p1 ++ flatPat p2
+-- flatPat (FcVarPat x)       = [FcVarPat x]
+-- flatPat (FcConPatNs dc ps) = [FcConPatNs dc ps' | ps' <- cart (map flatPat ps)]
 
 -- | Type check a list of case alternatives
 tcAlts :: FcType -> [FcAlt 'Fc] -> FcM ([FcAlt 'Fc], FcType)
@@ -243,7 +244,7 @@ tcAlts scr_ty alts
       return (fc_alts, ty)
 
 tcAlt :: FcType -> FcAlt 'Fc -> FcM (FcAlt 'Fc, FcType)
-tcAlt scr_ty (FcAlt (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
+tcAlt scr_ty (FcAltFc (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
   Just (tc, tys) -> do
     tmVarsNotInFcCtxM xs -- GEORGE: Ensure not bound already
     (as, arg_tys, dc_tc) <- lookupDataConTyM dc
@@ -252,7 +253,7 @@ tcAlt scr_ty (FcAlt (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
     let ty_subst     = mconcat (zipWithExact (|->) as tys)
     let real_arg_tys = map (substFcTyInTy ty_subst) arg_tys
     (fc_rhs, ty)     <- extendCtxTmsM xs real_arg_tys (tcTerm rhs)
-    return (FcAlt (FcConPat dc xs) fc_rhs, ty)
+    return (FcAltFc (FcConPat dc xs) fc_rhs, ty)
   Nothing -> throwErrorM (text "destructScrTy" <+> colon <+> text "Not a tycon application")
 
 -- * Pattern desugaring
@@ -266,7 +267,8 @@ get_rhs = snd
 
 -- | Convert an Alt to an equation
 altToEqn :: FcAlt 'Tc -> PmEqn
-altToEqn (FcAlt p t) = ([p], t)
+altToEqn _ = notImplemented "altToEqn"
+-- altToEqn (FcAltTc p t) = ([p], t)
 
 -- | Create a default term
 defaultTerm :: FcType -> FcTerm 'Fc
@@ -329,7 +331,7 @@ matchClause dc (u:us) qs def = do
   let real_tys = getRealArgTys exp_ty as tys
   let mtch     = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
   fc_rhs       <- extendCtxTmsM us' real_tys mtch -- REINERT: george doesn't like this binding variables.
-  return (FcAlt (FcConPat dc us') fc_rhs)
+  return (FcAltFc (FcConPat dc us') fc_rhs)
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
 -- | Match a list of equations according to variable or constructor rule

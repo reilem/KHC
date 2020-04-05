@@ -2,11 +2,9 @@ data Number = Zero | Succ Number
 
 data List (a :: *) = Nil | Cons a (List a)
 
--- Test has "up nested" guards that should fail
+-- Test has guard patterns and an otherwise
 \x. case x of
     Nil       -> Zero
     Cons x xs
-      | Cons y ys <- xs -> y
-        | Cons z zs <- ys -> z
-        | Zero      <- y  -> Zero
+      | Cons y ys <- x -> z_rhs
       | Zero <- Zero   -> Zero

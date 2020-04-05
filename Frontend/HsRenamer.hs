@@ -270,10 +270,10 @@ rnGuarded (HsGuarded (g:gs) rhs) = do
 
 -- | Rename a guard
 rnGuard :: PsGuard -> RnM (RnGuard, RnTmVarBinds)
-rnGuard (HsPatGuard pat tm) = do
+rnGuard (HsPatGuard p tm) = do
   rnTm           <- rnTerm tm
-  (rnPat, binds) <- rnPat pat
-  return (HsPatGuard rnPat rnTm, binds)
+  (rnp, binds) <- rnPat p
+  return (HsPatGuard rnp rnTm, binds)
 
 -- | Check the arity of a data constructor
 dataConArityCheck :: PsDataCon -> [PsPat] -> RnM ()
