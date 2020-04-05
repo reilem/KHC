@@ -194,11 +194,9 @@ tcTerm (FcTmCaseFc scr alts) = do
   (fc_alts, ty)    <- tcAlts scr_ty alts
   return (FcTmCaseFc fc_scr fc_alts, ty)
 tcTerm (FcTmCaseTc _ rhs_ty scr alts) = do
-  (fc_scr, scr_ty) <- tcTerm scr
-  x                <- makeVar
-  let qs           = map altToEqn (flatAlts alts)
-  dsgr             <- extendCtxTmM x scr_ty (match [x] qs (defaultTerm rhs_ty))
-  tcTerm (substVar x fc_scr dsgr)
+  let qs           = map altToEqn alts
+  desugared        <- dsgrEquations qs scr (defaultTerm rhs_ty)
+  tcTerm desugared
 tcTerm (FcTmERROR s ty) = do
   kind <- tcType ty  -- GEORGE: Should have kind star
   unless (kind == KStar) $
@@ -345,6 +343,14 @@ match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
 match []     (q:_)  _   = fst <$> tcTerm (get_rhs q)
 match []     []     def = return def
+
+-- | Calls match with new variable
+dsgrEquations :: [PmEqn] -> FcTerm 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+dsgrEquations qs tm def = do
+  (fc_tm, tm_ty) <- tcTerm tm
+  x              <- makeVar
+  matched        <- extendCtxTmM x tm_ty (match [x] qs def)
+  return $ substVar x fc_tm matched
 
 -- | Ensure that all types are syntactically the same
 ensureIdenticalTypes :: [FcType] -> FcM ()
