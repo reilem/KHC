@@ -195,7 +195,7 @@ tcTerm (FcTmCaseFc scr alts) = do
   return (FcTmCaseFc fc_scr fc_alts, ty)
 tcTerm (FcTmCaseTc _ rhs_ty scr alts) = do
   let qs           = map altToEqn alts
-  desugared        <- dsgrEquations qs scr (defaultTerm rhs_ty)
+  desugared        <- desugarEqns qs scr (defaultTerm rhs_ty)
   tcTerm desugared
 tcTerm (FcTmERROR s ty) = do
   kind <- tcType ty  -- GEORGE: Should have kind star
@@ -221,8 +221,8 @@ tcType (FcTyApp ty1 ty2) = do
 tcType (FcTyCon tc) = lookupTyConKindM tc
 
 -- | Flatten out any or patterns in the alternatives
-flatAlts :: FcAlts 'Tc -> FcAlts 'Tc
-flatAlts = notImplemented "flatAlts"
+-- flatAlts :: FcAlts 'Tc -> FcAlts 'Tc
+-- flatAlts = notImplemented "flatAlts"
   -- concatMap (\(FcAlt p rhs) -> [FcAlt p' rhs | p' <- flatPat p])
 
 -- | Flatten out any or patterns in the pattern
@@ -257,16 +257,11 @@ tcAlt scr_ty (FcAltFc (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
 -- * Pattern desugaring
 -- ---------------------------------------------
 
-type PmEqn = ([FcPat 'Tc], FcTerm 'Tc)
-
--- | Get right hand side of an equation
-get_rhs :: PmEqn -> FcTerm 'Tc
-get_rhs = snd
+type PmEqn = ([FcPat 'Tc], [FcGuarded 'Tc])
 
 -- | Convert an Alt to an equation
 altToEqn :: FcAlt 'Tc -> PmEqn
-altToEqn _ = notImplemented "altToEqn"
--- altToEqn (FcAltTc p t) = ([p], t)
+altToEqn (FcAltTc p grs) = ([p], grs)
 
 -- | Create a default term
 defaultTerm :: FcType -> FcTerm 'Fc
@@ -340,17 +335,25 @@ matchVarCon _  _                                _   = panic "matchVarCon: invali
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
-match []     (q:_)  _   = fst <$> tcTerm (get_rhs q)
-match []     []     def = return def
+match (u:us) qs       def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
+match []     qs@(_:_) def = foldrM matchGs              def (extractGrs qs)
+match []     []       def = return def
 
 -- | Calls match with new variable
-dsgrEquations :: [PmEqn] -> FcTerm 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-dsgrEquations qs tm def = do
+desugarEqns :: [PmEqn] -> FcTerm 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+desugarEqns qs tm def = do
   (fc_tm, tm_ty) <- tcTerm tm
   x              <- makeVar
   matched        <- extendCtxTmM x tm_ty (match [x] qs def)
   return $ substVar x fc_tm matched
+
+extractGrs :: [PmEqn] -> [FcGuarded 'Tc]
+extractGrs = concatMap snd
+
+matchGs :: FcGuarded 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchGs (FcGuarded ((FcPatGuard p tm):gs) rhs) def =
+  desugarEqns [([p], [FcGuarded gs rhs])] tm def
+matchGs (FcGuarded []                     rhs) _   = fst <$> tcTerm rhs
 
 -- | Ensure that all types are syntactically the same
 ensureIdenticalTypes :: [FcType] -> FcM ()
