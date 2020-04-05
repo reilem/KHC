@@ -27,14 +27,31 @@ panic = error . (++) "Panic! Something went terribly wrong. "
 tack :: a -> [[a]] -> [[a]]
 tack x xs = (x : (head xs)) : (tail xs)
 
+partition :: [(a -> Bool)] -> [a] -> [[a]]
+partition fs xs = go fs fs xs
+  where
+    go :: [(a -> Bool)] -> [(a -> Bool)] -> [a] -> [[a]]
+    go _      _   []  = []
+    go (g:gs) gss (a:as)
+      | g a           = let (i, o) = part g (a:as) in (i : go gss gss o)
+      | otherwise     = go gs gss (a:as)
+    go _      _    _  = panic ("No functions were provided." ++
+      " Or no function was able to match the content in 'partition'.")
+
+part :: (a -> Bool) -> [a] -> ([a], [a])
+part _ []     = ([], [])
+part f (x:xs)
+  | f x       = let (i, o) = part f xs in (x : i, o)
+  | otherwise = ([], (x:xs))
+
 -- Parition adjacent elements based on equality to return of given function
 -- E.g. partition odd [1,3,2,4,1] = [[1,3],[2,4],[1]]
-partition :: (Eq b) => (a -> b) -> [a] -> [[a]]
-partition _ []       = []
-partition _ [x]      = [[x]]
-partition f (x:y:xs)
-  | f x == f y = tack x (partition f (y : xs))
-  | otherwise  = [x] : partition f (y : xs)
+-- partition :: (Eq b) => (a -> b) -> [a] -> [[a]]
+-- partition _ []       = []
+-- partition _ [x]      = [[x]]
+-- partition f (x:y:xs)
+--   | f x == f y = tack x (partition f (y : xs))
+--   | otherwise  = [x] : partition f (y : xs)
 
 -- Checks if two (unordered) lists contain the same elements
 -- E.g. listsEqual [3, 2, 1] [2, 1, 3] = True
