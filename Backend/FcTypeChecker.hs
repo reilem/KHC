@@ -276,6 +276,10 @@ isVar _                     = False
 groupEqns :: [PmEqn] -> [[PmEqn]]
 groupEqns = partition isVar
 
+-- | Extracts Guarded right hand sides from all equations into one list
+extractGrs :: [PmEqn] -> [FcGuarded 'Tc]
+extractGrs = concatMap snd
+
 -- | Generate fresh renamed variable
 makeVar :: FcM FcTmVar
 makeVar = freshFcTmVar
@@ -301,6 +305,14 @@ getRealArgTys ty as arg_tys = case tyConAppMaybe ty of
     map (substFcTyInTy ty_subst) arg_tys
   Nothing       -> panic "getRealArgTys: not a type constructor application"
 
+-- | Calls match with new fresh variable, extended type context and substitutes result at the end
+desugarEqns :: [PmEqn] -> FcTerm 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+desugarEqns qs tm def = do
+  (fc_tm, tm_ty) <- tcTerm tm
+  x              <- makeVar
+  matched        <- extendCtxTmM x tm_ty (match [x] qs def)
+  return $ substVar x fc_tm matched
+
 -- | Match equations according to the variable rule
 matchVar :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
@@ -322,8 +334,8 @@ matchClause dc (u:us) qs def = do
   us'          <- replicateM k makeVar
   (as, tys, _) <- lookupDataConTyM dc
   let real_tys = getRealArgTys exp_ty as tys
-  let mtch     = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
-  fc_rhs       <- extendCtxTmsM us' real_tys mtch -- REINERT: george doesn't like this binding variables.
+  let matchedM = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
+  fc_rhs       <- extendCtxTmsM us' real_tys matchedM -- REINERT: george doesn't like this binding variables.
   return (FcAltFc (FcConPat dc us') fc_rhs)
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
@@ -339,17 +351,7 @@ match (u:us) qs       def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
 match []     qs@(_:_) def = foldrM matchGs              def (extractGrs qs)
 match []     []       def = return def
 
--- | Calls match with new variable
-desugarEqns :: [PmEqn] -> FcTerm 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-desugarEqns qs tm def = do
-  (fc_tm, tm_ty) <- tcTerm tm
-  x              <- makeVar
-  matched        <- extendCtxTmM x tm_ty (match [x] qs def)
-  return $ substVar x fc_tm matched
-
-extractGrs :: [PmEqn] -> [FcGuarded 'Tc]
-extractGrs = concatMap snd
-
+-- | Perform match on guarded right hand sides
 matchGs :: FcGuarded 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchGs (FcGuarded ((FcPatGuard p tm):gs) rhs) def =
   desugarEqns [([p], [FcGuarded gs rhs])] tm def
