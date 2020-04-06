@@ -2,6 +2,7 @@
 module Utils.Utils where
 
 import Data.List (nub, sort)
+import Utils.PrettyPrint
 
 -- | Zip two lists into a list of tuples. Fail if lengths don't match.
 zipExact :: [a] -> [b] -> [(a,b)]
@@ -27,16 +28,17 @@ panic = error . (++) "Panic! Something went terribly wrong. "
 tack :: a -> [[a]] -> [[a]]
 tack x xs = (x : (head xs)) : (tail xs)
 
-partition :: [(a -> Bool)] -> [a] -> [[a]]
+partition :: PrettyPrint a => [(a -> Bool)] -> [a] -> [[a]]
 partition fs xs = go fs fs xs
   where
-    go :: [(a -> Bool)] -> [(a -> Bool)] -> [a] -> [[a]]
+    go :: PrettyPrint a => [(a -> Bool)] -> [(a -> Bool)] -> [a] -> [[a]]
     go _      _   []  = []
     go (g:gs) gss (a:as)
       | g a           = let (i, o) = part g (a:as) in (i : go gss gss o)
       | otherwise     = go gs gss (a:as)
-    go _      _    _  = panic ("No functions were provided." ++
-      " Or no function was able to match the content in 'partition'.")
+    go _      _    as  = [panic ("No functions were provided." ++
+      " Or no function was able to match the content in 'partition'." ++
+      (render (ppr as)))]
 
 part :: (a -> Bool) -> [a] -> ([a], [a])
 part _ []     = ([], [])
