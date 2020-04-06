@@ -5,7 +5,7 @@ data Tree (a :: *) = Leaf a | Node (Tree a) (Tree a) | EmptyLeaf
 
 data Tuple (a :: *) (b :: *) (c :: *) (d :: *) = Double a b | Triple a b c | Quad a b c d
 
--- Test has guard patterns with a nested case-of as guard expression using multiple OR patterns
+-- Test has guard patterns with a nested case-of as guard expression
 \y. case y of -- y :: List (Tuple (Tree Number) (Tree Number) Bool Number)
     Nil       -> EmptyLeaf
     Cons x xs
