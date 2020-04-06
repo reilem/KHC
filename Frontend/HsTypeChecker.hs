@@ -1049,7 +1049,11 @@ elabTermSimpl theory tm = do
                        substFcTmInTm ev_subst $
                          refined_fc_tm
 
-  return (gen_ty, full_fc_tm)
+  return (gen_ty, addMissingTypeBindings full_fc_tm)
+
+addMissingTypeBindings :: FcTerm 'Tc -> FcTerm 'Tc
+addMissingTypeBindings tm = fcTmTyAbs (nub $ ftyvsOf tm) tm
+
 
 -- * Program Elaboration
 -- ------------------------------------------------------------------------------

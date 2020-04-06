@@ -259,7 +259,7 @@ instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmAbs _ ty tm)      = ftyvsOf ty ++ ftyvsOf tm
   ftyvsOf (FcTmVar{})            = []
   ftyvsOf (FcTmApp tm1 tm2)      = ftyvsOf tm1 ++ ftyvsOf tm2
-  ftyvsOf (FcTmTyAbs a tm)       = ftyvsOf tm \\ [a]
+  ftyvsOf (FcTmTyAbs a tm)       = filter (/= a) (ftyvsOf tm)
   ftyvsOf (FcTmTyApp tm ty)      = ftyvsOf tm ++ ftyvsOf ty
   ftyvsOf (FcTmDataCon{})        = []
   ftyvsOf (FcTmLet _ ty tm1 tm2) = ftyvsOf ty ++ ftyvsOf tm1 ++ ftyvsOf tm2
