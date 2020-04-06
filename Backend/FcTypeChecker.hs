@@ -267,14 +267,24 @@ altToEqn (FcAltTc p grs) = ([p], grs)
 defaultTerm :: FcType -> FcTerm 'Fc
 defaultTerm ty = FcTmERROR "Match Failed" ty
 
--- | Check if first pattern of equation contains a variable
+-- | Check if first pattern of equation is a variable pattern
 isVar :: PmEqn -> Bool
 isVar (((FcVarPat _):_), _) = True
 isVar _                     = False
 
--- | Group the equations based on if they start with a variable or constructor
+-- | Check if first pattern of equation is a constructor pattern
+isCon :: PmEqn -> Bool
+isCon (((FcConPatNs _ _):_), _) = True
+isCon _                         = False
+
+-- | Check if first pattern of equation is an or pattern
+isOr :: PmEqn -> Bool
+isOr (((FcOrPat _ _):_), _) = True
+isOr _                      = False
+
+-- | Group the equations based on if they start with a variable, constructor, or or-pattern
 groupEqns :: [PmEqn] -> [[PmEqn]]
-groupEqns = partition isVar
+groupEqns = partition [isVar, isCon, isOr]
 
 -- | Extracts Guarded right hand sides from all equations into one list
 extractGrs :: [PmEqn] -> [FcGuarded 'Tc]
@@ -339,11 +349,17 @@ matchClause dc (u:us) qs def = do
   return (FcAltFc (FcConPat dc us') fc_rhs)
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
+-- | Match equations according to (new) or rule
+matchOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchOr us ((((FcOrPat p1 p2):ps), rhs):qs) def = match us (((p1:ps), rhs) : ((p2:ps), rhs) : qs) def
+matchOr _ _ _ = panic ("matchOr: called on a non or-pattern equation")
+
 -- | Match a list of equations according to variable or constructor rule
 matchVarCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
 matchVarCon us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
-matchVarCon _  _                                _   = panic "matchVarCon: invalid equations"
+matchVarCon us (q@(((FcOrPat    _ _):_), _):qs) def = matchOr  us (q:qs) def
+matchVarCon _  qs                                _   = panic ("matchVarCon: invalid equations: " ++ render (ppr qs))
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
