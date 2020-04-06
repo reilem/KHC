@@ -9,8 +9,8 @@ data Tuple (a :: *) (b :: *) (c :: *) (d :: *) = Double a b | Triple a b c | Qua
 \y. case y of -- y :: List (Tuple (Tree Number) (Tree Number) Bool Number)
     Nil       -> EmptyLeaf
     Cons x xs
-      | Double a b <- case x of -- a :: Tree Number, b :: Number
-        Double tree1 tree2
+      | (Double a b || Triple a b _) <- case x of -- a :: Tree Number, b :: Number
+        Double tree1 tree2 || Triple tree1 tree2 _
           | (Node left1 right1) <- tree1, (Node left2 right2) <- tree2 -> Double (Node left1 right2) Zero
           | (Node left1 right1) <- tree1, (Leaf val2)         <- tree2 -> Double (Node left1 right1) val2
           | (Leaf val1)         <- tree1, (Node left2 right2) <- tree2 -> Double (Node left2 right2) val1
