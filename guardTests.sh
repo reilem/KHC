@@ -32,9 +32,21 @@ then
   echo "MULTIPLE GUARDS TEST"
   echo "==================="
   stack --silent runghc Main.hs "Tests/Guards/MultipleGuardsTest.hs"
-  echo "COMPLEX TEST"
+  echo "TYPE VARIABLES IN GUARDS 1 TEST"
   echo "==================="
-  stack --silent runghc Main.hs "Tests/Guards/ComplexTest.hs"
+  stack --silent runghc Main.hs "Tests/Guards/TypeVariablesInGuard1Test.hs"
+  echo "TYPE VARIABLES IN GUARDS 2 TEST"
+  echo "==================="
+  stack --silent runghc Main.hs "Tests/Guards/TypeVariablesInGuard2Test.hs"
+  echo "COMPLEX SMALL TEST"
+  echo "==================="
+  stack --silent runghc Main.hs "Tests/Guards/ComplexSmallTest.hs"
+  echo "COMPLEX MEDIUM TEST"
+  echo "==================="
+  stack --silent runghc Main.hs "Tests/Guards/ComplexMediumTest.hs"
+  echo "COMPLEX LARGE TEST"
+  echo "==================="
+  stack --silent runghc Main.hs "Tests/Guards/ComplexLargeTest.hs"
 fi
 
 if [ "$ALL" == "1" ] || [ "$FAIL" == "1" ]
