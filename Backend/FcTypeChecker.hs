@@ -261,6 +261,8 @@ tcAlt scr_ty (FcAltFc (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
 
 type PmEqn = ([FcPat 'Tc], [FcGuarded 'Tc])
 
+type FcTmVarTy = (FcTmVar, FcType)
+
 -- | Convert an Alt to an equation
 altToEqn :: FcAlt 'Tc -> PmEqn
 altToEqn (FcAltTc p grs) = ([p], grs)
@@ -354,7 +356,29 @@ matchClause _   []    _  _   = panic "matchClause: empty variables"
 
 -- | Match equations according to (new) or rule
 matchOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-matchOr us ((((FcOrPat p1 p2):ps), rhs):qs) def = match us (((p1:ps), rhs) : ((p2:ps), rhs) : qs) def
+matchOr (u:us) ((((FcOrPat p1 p2):ps), rhs):qs) def = do
+  exp_ty     <- lookupTmVarM u
+  tmVarTys   <- extractTmVarTys exp_ty p1
+  traceM "matchOr" (ppr tmVarTys)
+  tm         <- extendCtxTmZipM tmVarTys (match us ((ps, rhs) : qs) def)
+  traceM "matchOr tm" (ppr tm)
+  f          <- foldrM abstractTmVarTy tm tmVarTys
+  traceM "matchOr f" (ppr f)
+  y          <- makeVar
+  (_, tm_ty) <- extendCtxTmZipM tmVarTys (tcTerm tm)
+  let y_ty   = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys
+  traceM "matchOr y_ty" (ppr y_ty)
+  -- TODO: create type for y, using tmVarTys and tm_ty: ty1 -> ty2 -> ... -> tm_ty
+  let f_app  = foldl applyTmVarTy (FcTmVar y) tmVarTys
+  let g_app  = FcGuarded [] f_app
+  traceM "matchOr app" (ppr f_app)
+  -- TODO: bind the type for y before this call
+  matched    <- extendCtxTmM y y_ty (match [u] [([p1], [g_app]), ([p2], [g_app])] def)
+  traceM "matchOr matched" (ppr matched)
+
+  return (FcTmLet y y_ty f matched)
+  -- return a let, binding the abstractions term to fresh var in result of matched
+
 matchOr _ _ _ = panic ("matchOr: called on a non or-pattern equation")
 
 -- | Match a list of equations according to variable, constructor or or-pattern rule
@@ -387,12 +411,20 @@ ensureIdenticalTypes types = unless (go types) $ throwError "Type mismatch in ca
     go []       = True
     go (ty:tys) = all (eqFcTypes ty) tys
 
-extractTmVarTys :: FcType -> FcPat 'Tc -> FcM [(FcTmVar, FcType)]
+-- | Extracts all term variables and associated types out of the given pattern
+extractTmVarTys :: FcType -> FcPat 'Tc -> FcM [FcTmVarTy]
 extractTmVarTys ty (FcVarPat   x    ) = return [(x, ty)]
-extractTmVarTys ty (FcOrPat    p1 p2) = extractTmVarTys ty p1 -- Only one because they should be identical
+extractTmVarTys ty (FcOrPat    p1 _ ) = extractTmVarTys ty p1 -- Should be identical
 extractTmVarTys ty (FcConPatNs dc ps) = do
   tys <- getRealDcArgTys ty dc
   concat <$> (zipWithM extractTmVarTys tys ps)
+
+applyTmVarTy :: FcTerm 'Tc -> FcTmVarTy -> FcTerm 'Tc
+applyTmVarTy y (x, _) = FcTmApp y (FcTmVar x)
+
+abstractTmVarTy :: FcTmVarTy -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+abstractTmVarTy (x,ty) tm = makeVar >>= (\x' ->
+  return $ FcTmAbs x' ty (substVar x (FcTmVar x') tm))
 
 -- * Invoke the complete System F type checker
 -- ----------------------------------------------------------------------------
