@@ -405,7 +405,7 @@ extractTmVarTys ty (FcVarPat   x    ) = return [(x, ty)]
 extractTmVarTys ty (FcOrPat    p1 p2) = do
   tvty1 <- extractTmVarTys ty p1
   tvty2 <- extractTmVarTys ty p2
-  return $ filter (\(x,_) -> any (\(y,_) -> x == y) tvty2) tvty1
+  return $ filter (\(x,_) -> any ((x ==) . fst) tvty2) tvty1
 extractTmVarTys ty (FcConPatNs dc ps) = do
   tys <- getRealDcArgTys ty dc
   concat <$> (zipWithM extractTmVarTys tys ps)
