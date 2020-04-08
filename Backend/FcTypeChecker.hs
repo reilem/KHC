@@ -315,6 +315,11 @@ getRealArgTys ty as arg_tys = case tyConAppMaybe ty of
     map (substFcTyInTy ty_subst) arg_tys
   Nothing       -> panic "getRealArgTys: not a type constructor application"
 
+getRealDcArgTys :: FcType -> FcDataCon -> FcM [FcType]
+getRealDcArgTys exp_ty dc = do
+  (as, arg_tys, _) <- lookupDataConTyM dc
+  return $ getRealArgTys exp_ty as arg_tys
+
 -- | Calls match with new fresh variable, extended type context and substitutes result at the end
 desugarEqns :: [PmEqn] -> FcTerm 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 desugarEqns qs tm def = do
@@ -342,10 +347,9 @@ matchClause dc (u:us) qs def = do
   exp_ty       <- lookupTmVarM u
   k            <- arity dc
   us'          <- replicateM k makeVar
-  (as, tys, _) <- lookupDataConTyM dc
-  let real_tys = getRealArgTys exp_ty as tys
+  tys          <- getRealDcArgTys exp_ty dc
   let matchedM = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
-  fc_rhs       <- extendCtxTmsM us' real_tys matchedM -- REINERT: george doesn't like this binding variables.
+  fc_rhs       <- extendCtxTmsM us' tys matchedM -- REINERT: george doesn't like this binding variables.
   return (FcAltFc (FcConPat dc us') fc_rhs)
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 

@@ -5,7 +5,7 @@ module Utils.Ctx
 , lookupTyVarCtx, lookupTmVarCtx, extendCtxTy, extendCtxTm
 , lookupTyVarM, lookupTmVarM
 , extendCtxTyM, extendCtxTysM
-, extendCtxTmM, extendCtxTmsM
+, extendCtxTmM, extendCtxTmZipM, extendCtxTmsM
 , extendCtxM, setCtxM
 ) where
 
@@ -90,6 +90,10 @@ extendCtxTysM _      _      _ = throwErrorM (text "extendCtxTysM" <+> colon <+> 
 -- | Add a term variable to the context
 extendCtxTmM :: MonadReader (Ctx x x' a a') m => x -> x' -> m b -> m b
 extendCtxTmM psx rnx = local (\ctx -> extendCtxTm ctx psx rnx)
+
+extendCtxTmZipM :: (MonadReader (Ctx x x' a a') m, MonadError String m) => [(x, x')] -> m b -> m b
+extendCtxTmZipM zipped m = extendCtxTmsM xs xs' m
+  where (xs,xs') = unzip zipped
 
 -- | Add many term variables to the context
 extendCtxTmsM :: (MonadReader (Ctx x x' a a') m, MonadError String m) => [x] -> [x'] -> m b -> m b
