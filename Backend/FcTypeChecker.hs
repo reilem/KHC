@@ -387,6 +387,13 @@ ensureIdenticalTypes types = unless (go types) $ throwError "Type mismatch in ca
     go []       = True
     go (ty:tys) = all (eqFcTypes ty) tys
 
+extractTmVarTys :: FcType -> FcPat 'Tc -> FcM [(FcTmVar, FcType)]
+extractTmVarTys ty (FcVarPat   x    ) = return [(x, ty)]
+extractTmVarTys ty (FcOrPat    p1 p2) = extractTmVarTys ty p1 -- Only one because they should be identical
+extractTmVarTys ty (FcConPatNs dc ps) = do
+  tys <- getRealDcArgTys ty dc
+  concat <$> (zipWithM extractTmVarTys tys ps)
+
 -- * Invoke the complete System F type checker
 -- ----------------------------------------------------------------------------
 
