@@ -359,26 +359,15 @@ matchOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchOr (u:us) ((((FcOrPat p1 p2):ps), rhs):qs) def = do
   exp_ty     <- lookupTmVarM u
   tmVarTys   <- extractTmVarTys exp_ty p1
-  traceM "matchOr" (ppr tmVarTys)
   tm         <- extendCtxTmZipM tmVarTys (match us ((ps, rhs) : qs) def)
-  traceM "matchOr tm" (ppr tm)
   f          <- foldrM abstractTmVarTy tm tmVarTys
-  traceM "matchOr f" (ppr f)
   y          <- makeVar
   (_, tm_ty) <- extendCtxTmZipM tmVarTys (tcTerm tm)
   let y_ty   = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys
-  traceM "matchOr y_ty" (ppr y_ty)
-  -- TODO: create type for y, using tmVarTys and tm_ty: ty1 -> ty2 -> ... -> tm_ty
   let f_app  = foldl applyTmVarTy (FcTmVar y) tmVarTys
   let g_app  = FcGuarded [] f_app
-  traceM "matchOr app" (ppr f_app)
-  -- TODO: bind the type for y before this call
   matched    <- extendCtxTmM y y_ty (match [u] [([p1], [g_app]), ([p2], [g_app])] def)
-  traceM "matchOr matched" (ppr matched)
-
   return (FcTmLet y y_ty f matched)
-  -- return a let, binding the abstractions term to fresh var in result of matched
-
 matchOr _ _ _ = panic ("matchOr: called on a non or-pattern equation")
 
 -- | Match a list of equations according to variable, constructor or or-pattern rule
