@@ -358,7 +358,7 @@ matchClause _   []    _  _   = panic "matchClause: empty variables"
 matchOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchOr (u:us) ((((FcOrPat p1 p2):ps), rhs):qs) def = do
   exp_ty      <- lookupTmVarM u
-  tmVarTys    <- extractTmVarTys exp_ty p1
+  tmVarTys    <- extractTmVarTys exp_ty (FcOrPat p1 p2)
   (tm, tm_ty) <- extendCtxTmZipM tmVarTys (match us ((ps, rhs) : qs) def >>= tcTerm)
   f           <- foldrM abstractTmVarTy tm tmVarTys
   let f_ty    = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys
@@ -402,7 +402,10 @@ ensureIdenticalTypes types = unless (go types) $ throwError "Type mismatch in ca
 -- | Extracts all term variables and associated types out of the given pattern
 extractTmVarTys :: FcType -> FcPat 'Tc -> FcM [FcTmVarTy]
 extractTmVarTys ty (FcVarPat   x    ) = return [(x, ty)]
-extractTmVarTys ty (FcOrPat    p1 _ ) = extractTmVarTys ty p1 -- Should be identical
+extractTmVarTys ty (FcOrPat    p1 p2) = do
+  tvty1 <- extractTmVarTys ty p1
+  tvty2 <- extractTmVarTys ty p2
+  return $ filter (\(x,_) -> any (\(y,_) -> x == y) tvty2) tvty1
 extractTmVarTys ty (FcConPatNs dc ps) = do
   tys <- getRealDcArgTys ty dc
   concat <$> (zipWithM extractTmVarTys tys ps)
