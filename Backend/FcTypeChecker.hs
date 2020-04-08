@@ -357,16 +357,15 @@ matchClause _   []    _  _   = panic "matchClause: empty variables"
 -- | Match equations according to (new) or rule
 matchOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchOr (u:us) ((((FcOrPat p1 p2):ps), rhs):qs) def = do
-  exp_ty     <- lookupTmVarM u
-  tmVarTys   <- extractTmVarTys exp_ty p1
-  tm         <- extendCtxTmZipM tmVarTys (match us ((ps, rhs) : qs) def)
-  f          <- foldrM abstractTmVarTy tm tmVarTys
-  y          <- makeVar
-  (_, tm_ty) <- extendCtxTmZipM tmVarTys (tcTerm tm)
-  let f_ty   = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys
-  let y_app  = foldl applyTmVarTy (FcTmVar y) tmVarTys
-  let g_app  = FcGuarded [] y_app
-  matched    <- extendCtxTmM y f_ty (match [u] [([p1], [g_app]), ([p2], [g_app])] def)
+  exp_ty      <- lookupTmVarM u
+  tmVarTys    <- extractTmVarTys exp_ty p1
+  (tm, tm_ty) <- extendCtxTmZipM tmVarTys (match us ((ps, rhs) : qs) def >>= tcTerm)
+  f           <- foldrM abstractTmVarTy tm tmVarTys
+  let f_ty    = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys
+  y           <- makeVar
+  let y_app   = foldl applyTmVarTy (FcTmVar y) tmVarTys
+  let g_app   = FcGuarded [] y_app
+  matched     <- extendCtxTmM y f_ty (match [u] [([p1], [g_app]), ([p2], [g_app])] def)
   return (FcTmLet y f_ty f matched)
 matchOr _ _ _ = panic ("matchOr: called on a non or-pattern equation")
 
