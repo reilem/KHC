@@ -363,11 +363,11 @@ matchOr (u:us) ((((FcOrPat p1 p2):ps), rhs):qs) def = do
   f          <- foldrM abstractTmVarTy tm tmVarTys
   y          <- makeVar
   (_, tm_ty) <- extendCtxTmZipM tmVarTys (tcTerm tm)
-  let y_ty   = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys
-  let f_app  = foldl applyTmVarTy (FcTmVar y) tmVarTys
-  let g_app  = FcGuarded [] f_app
-  matched    <- extendCtxTmM y y_ty (match [u] [([p1], [g_app]), ([p2], [g_app])] def)
-  return (FcTmLet y y_ty f matched)
+  let f_ty   = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys
+  let y_app  = foldl applyTmVarTy (FcTmVar y) tmVarTys
+  let g_app  = FcGuarded [] y_app
+  matched    <- extendCtxTmM y f_ty (match [u] [([p1], [g_app]), ([p2], [g_app])] def)
+  return (FcTmLet y f_ty f matched)
 matchOr _ _ _ = panic ("matchOr: called on a non or-pattern equation")
 
 -- | Match a list of equations according to variable, constructor or or-pattern rule
