@@ -47,6 +47,9 @@ then
   echo "COMPLEX LARGE TEST"
   echo "==================="
   stack --silent runghc Main.hs "Tests/Guards/ComplexLargeTest.hs"
+  echo "COMPLEX LARGE WITH OR TEST"
+  echo "==================="
+  stack --silent runghc Main.hs "Tests/Guards/ComplexLargeWithOrTest.hs"
 fi
 
 if [ "$ALL" == "1" ] || [ "$FAIL" == "1" ]
