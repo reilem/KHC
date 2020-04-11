@@ -194,9 +194,11 @@ tcTerm (FcTmCaseFc scr alts) = do
   (fc_alts, ty)    <- tcAlts scr_ty alts
   return (FcTmCaseFc fc_scr fc_alts, ty)
 tcTerm (FcTmCaseTc _ rhs_ty scr alts) = do
+  (fc_scr, scr_ty) <- tcTerm scr
+  x                <- makeVar
   let qs           = map altToEqn alts
-  desugared        <- desugarEqns qs scr (defaultTerm rhs_ty)
-  tcTerm desugared
+  matched          <- extendCtxTmM x scr_ty (match [x] qs (defaultTerm rhs_ty))
+  tcTerm (substVar x fc_scr matched)
 tcTerm (FcTmERROR s ty) = do
   kind <- tcType ty  -- GEORGE: Should have kind star
   unless (kind == KStar) $
@@ -320,14 +322,6 @@ getRealDcArgTys exp_ty dc = do
   (as, arg_tys, _) <- lookupDataConTyM dc
   return $ getRealArgTys exp_ty as arg_tys
 
--- | Calls match with new fresh variable, extended type context and substitutes result at the end
-desugarEqns :: [PmEqn] -> FcTerm 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-desugarEqns qs tm def = do
-  (fc_tm, tm_ty) <- tcTerm tm
-  x              <- makeVar
-  matched        <- extendCtxTmM x tm_ty (match [x] qs def)
-  return $ substVar x fc_tm matched
-
 -- | Match equations according to the variable rule
 matchVar :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
@@ -373,8 +367,11 @@ match []       []       def = return def
 
 -- | Perform match on guarded right hand sides
 matchGs :: FcGuarded 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-matchGs (FcGuarded ((FcPatGuard p tm):gs) rhs) def =
-  desugarEqns [([p], [FcGuarded gs rhs])] tm def
+matchGs (FcGuarded ((FcPatGuard p tm):gs) rhs) def = do
+  (fc_tm, tm_ty) <- tcTerm tm
+  x              <- makeVar
+  matched        <- extendCtxTmM x tm_ty (match [x] [([p], [FcGuarded gs rhs])] def)
+  return $ substVar x fc_tm matched
 matchGs (FcGuarded []                     rhs) _   = fst <$> tcTerm rhs
 
 -- | Ensure that all types are syntactically the same
