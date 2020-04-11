@@ -46,7 +46,7 @@ part f (x:xs)
   | f x       = let (i, o) = part f xs in (x : i, o)
   | otherwise = ([], (x:xs))
 
--- Parition adjacent elements based on equality to return of given function
+-- Partition adjacent elements based on equality to return of given function
 -- E.g. partition odd [1,3,2,4,1] = [[1,3],[2,4],[1]]
 -- partition :: (Eq b) => (a -> b) -> [a] -> [[a]]
 -- partition _ []       = []

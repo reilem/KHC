@@ -358,18 +358,18 @@ matchOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchOr us ((((FcOrPat p1 p2):ps), rhs):qs) def = match us (((p1:ps), rhs) : ((p2:ps), rhs) : qs) def
 matchOr _ _ _ = panic ("matchOr: called on a non or-pattern equation")
 
--- | Match a list of equations according to variable or constructor rule
-matchVarCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
-matchVarCon us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
-matchVarCon us (q@(((FcOrPat    _ _):_), _):qs) def = matchOr  us (q:qs) def
-matchVarCon _  qs                                _   = panic ("matchVarCon: invalid equations: " ++ render (ppr qs))
+-- | Match a list of equations according to variable, constructor or or-pattern rule
+matchVarConOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchVarConOr us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
+matchVarConOr us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
+matchVarConOr us (q@(((FcOrPat    _ _):_), _):qs) def = matchOr  us (q:qs) def
+matchVarConOr _  qs                                _   = panic ("matchVarCon: invalid equations: " ++ render (ppr qs))
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-match (u:us) qs       def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
-match []     qs@(_:_) def = foldrM matchGs              def (extractGrs qs)
-match []     []       def = return def
+match us@(_:_) qs       def = foldrM (matchVarConOr us) def (groupEqns qs)
+match []       qs@(_:_) def = foldrM matchGs            def (extractGrs qs)
+match []       []       def = return def
 
 -- | Perform match on guarded right hand sides
 matchGs :: FcGuarded 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
