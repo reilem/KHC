@@ -285,8 +285,13 @@ isOr (((FcOrPat _ _):_), _) = True
 isOr _                      = False
 
 -- | Group the equations based on if they start with a variable, constructor, or or-pattern
-groupEqns :: [PmEqn] -> [[PmEqn]]
-groupEqns = partition [isVar, isCon, isOr]
+partition :: [PmEqn] -> [[PmEqn]]
+partition [] = []
+partition ps@(p:_)
+  | isVar p, (varps, rest) <- span isVar ps = varps : partition rest
+  | isCon p, (conps, rest) <- span isCon ps = conps : partition rest
+  | isOr p , (orps, rest)  <- span isOr  ps = orps  : partition rest
+partition ps = panic ("partition: impossible: " ++ (render $ ppr ps))
 
 -- | Extracts Guarded right hand sides from all equations into one list
 extractGrs :: [PmEqn] -> [FcGuarded 'Tc]
@@ -361,7 +366,7 @@ matchVarConOr _  qs                                _   = panic ("matchVarCon: in
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-match us@(_:_) qs       def = foldrM (matchVarConOr us) def (groupEqns qs)
+match us@(_:_) qs       def = foldrM (matchVarConOr us) def (partition qs)
 match []       qs@(_:_) def = foldrM matchGs            def (extractGrs qs)
 match []       []       def = return def
 
