@@ -1,5 +1,7 @@
-data Tuple (a :: *) (b :: *) (c :: *) (d :: *) = Double a b | Triple a b c | Quad a b c d
+data List   (a :: *) = Nil | Cons a (List a)
+data Number = Zero | Succ Number
 
 -- Tests a basic usage of OR patterns.
 \x. case x of
-  Double x y || Triple x y _ -> x
+  Nil                                       -> Cons Nil Nil
+  Cons (Succ x) xs || Cons Zero (Cons x xs) -> Cons (Cons x xs) Nil

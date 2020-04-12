@@ -196,9 +196,9 @@ tcTerm (FcTmCaseFc scr alts) = do
 tcTerm (FcTmCaseTc _ rhs_ty scr alts) = do
   (fc_scr, scr_ty) <- tcTerm scr
   x                <- makeVar
-  let qs           = map altToEqn (flatAlts alts)
-  dsgr             <- extendCtxTmM x scr_ty (match [x] qs (defaultTerm rhs_ty))
-  tcTerm (substVar x fc_scr dsgr)
+  let qs           = map altToEqn alts
+  matched          <- extendCtxTmM x scr_ty (match [x] qs (defaultTerm rhs_ty))
+  tcTerm (substVar x fc_scr matched)
 tcTerm (FcTmERROR s ty) = do
   kind <- tcType ty  -- GEORGE: Should have kind star
   unless (kind == KStar) $
@@ -223,8 +223,8 @@ tcType (FcTyApp ty1 ty2) = do
 tcType (FcTyCon tc) = lookupTyConKindM tc
 
 -- | Flatten out any or patterns in the alternatives
-flatAlts :: FcAlts 'Tc -> FcAlts 'Tc
-flatAlts = notImplemented "flatAlts"
+-- flatAlts :: FcAlts 'Tc -> FcAlts 'Tc
+-- flatAlts = notImplemented "flatAlts"
   -- concatMap (\(FcAlt p rhs) -> [FcAlt p' rhs | p' <- flatPat p])
 
 -- | Flatten out any or patterns in the pattern
@@ -259,29 +259,43 @@ tcAlt scr_ty (FcAltFc (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
 -- * Pattern desugaring
 -- ---------------------------------------------
 
-type PmEqn = ([FcPat 'Tc], FcTerm 'Tc)
-
--- | Get right hand side of an equation
-get_rhs :: PmEqn -> FcTerm 'Tc
-get_rhs = snd
+type PmEqn = ([FcPat 'Tc], [FcGuarded 'Tc])
 
 -- | Convert an Alt to an equation
 altToEqn :: FcAlt 'Tc -> PmEqn
-altToEqn _ = notImplemented "altToEqn"
--- altToEqn (FcAltTc p t) = ([p], t)
+altToEqn (FcAltTc p grs) = ([p], grs)
 
 -- | Create a default term
 defaultTerm :: FcType -> FcTerm 'Fc
 defaultTerm ty = FcTmERROR "Match Failed" ty
 
--- | Check if first pattern of equation contains a variable
+-- | Check if first pattern of equation is a variable pattern
 isVar :: PmEqn -> Bool
 isVar (((FcVarPat _):_), _) = True
 isVar _                     = False
 
--- | Group the equations based on if they start with a variable or constructor
-groupEqns :: [PmEqn] -> [[PmEqn]]
-groupEqns = partition isVar
+-- | Check if first pattern of equation is a constructor pattern
+isCon :: PmEqn -> Bool
+isCon (((FcConPatNs _ _):_), _) = True
+isCon _                         = False
+
+-- | Check if first pattern of equation is an or pattern
+isOr :: PmEqn -> Bool
+isOr (((FcOrPat _ _):_), _) = True
+isOr _                      = False
+
+-- | Group the equations based on if they start with a variable, constructor, or or-pattern
+partition :: [PmEqn] -> [[PmEqn]]
+partition [] = []
+partition qs@(_:_)
+  | (varqs@(_:_), rest) <- span isVar qs = varqs : partition rest
+  | (conqs@(_:_), rest) <- span isCon qs = conqs : partition rest
+  | (orqs@(_:_) , rest) <- span isOr  qs = orqs  : partition rest
+partition qs = panic ("partition: impossible: " ++ (render $ ppr qs))
+
+-- | Extracts Guarded right hand sides from all equations into one list
+extractGrs :: [PmEqn] -> [FcGuarded 'Tc]
+extractGrs = concatMap snd
 
 -- | Generate fresh renamed variable
 makeVar :: FcM FcTmVar
@@ -308,6 +322,11 @@ getRealArgTys ty as arg_tys = case tyConAppMaybe ty of
     map (substFcTyInTy ty_subst) arg_tys
   Nothing       -> panic "getRealArgTys: not a type constructor application"
 
+getRealDcArgTys :: FcType -> FcDataCon -> FcM [FcType]
+getRealDcArgTys exp_ty dc = do
+  (as, arg_tys, _) <- lookupDataConTyM dc
+  return $ getRealArgTys exp_ty as arg_tys
+
 -- | Match equations according to the variable rule
 matchVar :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
@@ -327,24 +346,38 @@ matchClause dc (u:us) qs def = do
   exp_ty       <- lookupTmVarM u
   k            <- arity dc
   us'          <- replicateM k makeVar
-  (as, tys, _) <- lookupDataConTyM dc
-  let real_tys = getRealArgTys exp_ty as tys
-  let mtch     = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
-  fc_rhs       <- extendCtxTmsM us' real_tys mtch -- REINERT: george doesn't like this binding variables.
+  tys          <- getRealDcArgTys exp_ty dc
+  let matchedM = match (us' ++ us) [(ps' ++ ps, rhs) | ((FcConPatNs _ ps'):ps, rhs) <- qs] def
+  fc_rhs       <- extendCtxTmsM us' tys matchedM -- REINERT: george doesn't like this binding variables.
   return (FcAltFc (FcConPat dc us') fc_rhs)
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
--- | Match a list of equations according to variable or constructor rule
-matchVarCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
-matchVarCon us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
-matchVarCon _  _                                _   = panic "matchVarCon: invalid equations"
+-- | Match equations according to (new) or rule
+matchOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchOr us ((((FcOrPat p1 p2):ps), rhs):qs) def = match us (((p1:ps), rhs) : ((p2:ps), rhs) : qs) def
+matchOr _ _ _ = panic ("matchOr: called on a non or-pattern equation")
+
+-- | Match a list of equations according to variable, constructor or or-pattern rule
+matchVarConOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchVarConOr us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
+matchVarConOr us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
+matchVarConOr us (q@(((FcOrPat    _ _):_), _):qs) def = matchOr  us (q:qs) def
+matchVarConOr _  qs                                _   = panic ("matchVarCon: invalid equations: " ++ render (ppr qs))
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-match (u:us) qs     def = foldrM (matchVarCon (u:us)) def (groupEqns qs)
-match []     (q:_)  _   = fst <$> tcTerm (get_rhs q)
-match []     []     def = return def
+match us@(_:_) qs       def = foldrM (matchVarConOr us) def (partition qs)
+match []       qs@(_:_) def = foldrM matchGs            def (extractGrs qs)
+match []       []       def = return def
+
+-- | Perform match on guarded right hand sides
+matchGs :: FcGuarded 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchGs (FcGuarded ((FcPatGuard p tm):gs) rhs) def = do
+  (fc_tm, tm_ty) <- tcTerm tm
+  x              <- makeVar
+  matched        <- extendCtxTmM x tm_ty (match [x] [([p], [FcGuarded gs rhs])] def)
+  return $ substVar x fc_tm matched
+matchGs (FcGuarded []                     rhs) _   = fst <$> tcTerm rhs
 
 -- | Ensure that all types are syntactically the same
 ensureIdenticalTypes :: [FcType] -> FcM ()

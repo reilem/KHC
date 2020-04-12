@@ -149,8 +149,9 @@ type PsPat = HsPat Sym
 type RnPat = HsPat Name
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsAlt a) where
-  ppr (HsAlt pat gRs) = hang (ppr pat) 2 (vcat $ map ppr gRs)
-  needsParens _       = True
+  ppr (HsAlt p [HsGuarded [] t]) = (ppr p) <+> (ppr (HsGuarded [] t))
+  ppr (HsAlt p gRs)              = hang (ppr p) 2 (vcat $ map ppr gRs)
+  needsParens _                  = True
 
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsGuard a) where
   ppr (HsPatGuard p t) = ppr p <+> larrow <+> ppr t

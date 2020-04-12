@@ -111,7 +111,7 @@ instance SubstVar FcTyVar FcType (FcAlt a) where
   substVar a ty (FcAltTc p gRs) = FcAltTc (substVar a ty p) (map (substVar a ty) gRs)
 
 instance SubstVar FcTyVar FcType (FcGuarded a) where
-  substVar a ty (FcGuarded gs tm) = FcGuarded gs (substVar a ty tm)
+  substVar a ty (FcGuarded gs tm) = FcGuarded (map (substVar a ty) gs) (substVar a ty tm)
 
 instance SubstVar FcTyVar FcType (FcGuard a) where
   substVar a ty (FcPatGuard p tm) = FcPatGuard (substVar a ty p) (substVar a ty tm)

@@ -517,7 +517,7 @@ elabHsAlt :: RnMonoTy         {- Type of the scrutinee  -}
           -> GenM (FcAlt 'Tc) {- Elaborated alternative -}
 elabHsAlt scr_ty res_ty (HsAlt p gRs) = do
   (binds, fc_p) <- elabHsPat scr_ty p []      -- Elaborate the pattern
-  fc_gRs        <- extendTmVars binds (mapM (elabHsGuarded res_ty) gRs) -- Type check the right hand side
+  fc_gRs        <- extendCtxTmZipM binds (mapM (elabHsGuarded res_ty) gRs) -- Type check the right hand side
   return (FcAltTc fc_p fc_gRs)
 
 elabHsGuarded :: RnMonoTy             {- Result type -}
@@ -529,7 +529,7 @@ elabHsGuarded res_ty (HsGuarded []     rhs) = do
   return (FcGuarded [] fc_rhs)
 elabHsGuarded res_ty (HsGuarded (g:gs) rhs) = do
   (binds, fc_g)            <- elabHsGuard g
-  (FcGuarded fc_gs fc_rhs) <- extendTmVars binds (elabHsGuarded res_ty (HsGuarded gs rhs))
+  (FcGuarded fc_gs fc_rhs) <- extendCtxTmZipM binds (elabHsGuarded res_ty (HsGuarded gs rhs))
   return (FcGuarded (fc_g : fc_gs) fc_rhs)
 
 elabHsGuard :: RnGuard -> GenM (RnBinds, FcGuard 'Tc)
@@ -607,11 +607,6 @@ rnTyVarsToFcTypes = map rnTyVarToFcType
 -- | Covert a renamed term variable to a System F term
 rnTmVarToFcTerm :: RnTmVar -> (FcTerm 'Tc)
 rnTmVarToFcTerm = FcTmVar . rnTmVarToFcTmVar
-
--- | Add the rn binds to the context
-extendTmVars :: RnBinds -> GenM a -> GenM a
-extendTmVars binds m = extendCtxTmsM xs xs' m
-  where (xs,xs') = unzip binds
 
 -- * Type Unification
 -- ------------------------------------------------------------------------------

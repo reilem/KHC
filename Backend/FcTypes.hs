@@ -372,9 +372,10 @@ instance PrettyPrint (FcPat a) where
 
 -- | Pretty print case alternatives
 instance PrettyPrint (FcAlt a) where
-  ppr (FcAltFc p tm)  = ppr p <+> rarrow <+> ppr tm
-  ppr (FcAltTc p gRs) = hang (ppr p) 2 (vcat $ map ppr gRs)
-  needsParens _       = True
+  ppr (FcAltFc p tm)               = ppr p <+> rarrow <+> ppr tm
+  ppr (FcAltTc p [FcGuarded [] t]) = (ppr p) <+> (ppr (FcGuarded [] t))
+  ppr (FcAltTc p gRs)              = hang (ppr p) 2 (vcat $ map ppr gRs)
+  needsParens _                    = True
 
 instance PrettyPrint (FcGuarded a) where
   ppr (FcGuarded [] t)  = rarrow <+> ppr t
