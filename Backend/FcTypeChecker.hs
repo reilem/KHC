@@ -287,10 +287,10 @@ isOr _                      = False
 -- | Group the equations based on if they start with a variable, constructor, or or-pattern
 partition :: [PmEqn] -> [[PmEqn]]
 partition [] = []
-partition qs@(q:_)
-  | isVar q, (varqs, rest) <- span isVar qs = varqs : partition rest
-  | isCon q, (conqs, rest) <- span isCon qs = conqs : partition rest
-  | isOr  q, (orqs, rest)  <- span isOr  qs = orqs  : partition rest
+partition qs@(_:_)
+  | (varqs@(_:_), rest) <- span isVar qs = varqs : partition rest
+  | (conqs@(_:_), rest) <- span isCon qs = conqs : partition rest
+  | (orqs@(_:_) , rest) <- span isOr  qs = orqs  : partition rest
 partition qs = panic ("partition: impossible: " ++ (render $ ppr qs))
 
 -- | Extracts Guarded right hand sides from all equations into one list
