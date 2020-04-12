@@ -286,7 +286,10 @@ isOr :: PmEqn -> Bool
 isOr (((FcOrPat _ _):_), _) = True
 isOr _                      = False
 
--- | Checks if equations contain an or pattern in the first column and returns it
+-- | If given equations list contains an or-pattern in first column:
+-- |   return a Just tuple containing: 'all equations before the or-pattern',
+-- |   'the equation containing the or pattern' and 'all equations after'
+-- | Else: return Nothing
 extractOr :: [PmEqn] -> Maybe ([PmEqn], PmEqn, [PmEqn])
 extractOr []                              = Nothing
 extractOr (q@(((FcOrPat _ _):_),_):qs)    = Just ([], q, qs)
@@ -311,27 +314,29 @@ extractGrs = concatMap snd
 makeVar :: FcM FcTmVar
 makeVar = freshFcTmVar
 
--- Choose all equations that start with the given data constructor
+-- | Choose all equations that start with the given data constructor
 choose :: FcDataCon -> [PmEqn] -> [PmEqn]
 choose c qs = [q | q@(((FcConPatNs c' _):_), _) <- qs, c == c']
 
--- Get list of all constructors of the same type as the first data constructor in the equation
+-- | Get list of all constructors of the same type as the first data constructor in the equation
 constructors :: [PmEqn] -> FcM [FcDataCon]
 constructors (((FcConPatNs dc _):_, _):_) = do
   ty_con_info <- lookupDataConTyConInfoM dc
   return $ fc_tc_data_cons ty_con_info
 constructors _                            = return []
 
--- Get ariry of data constructor
+-- | Get ariry of data constructor
 arity :: FcDataCon -> FcM Int
 arity dc = length . fc_dc_arg_tys <$> lookupDataConInfoM dc
 
+-- | Get the real argument types from a starting type application, type variables and given types.
 getRealArgTys :: FcType -> [FcTyVar] -> [FcType] -> [FcType]
 getRealArgTys ty as arg_tys = case tyConAppMaybe ty of
   Just (_, tys) -> let ty_subst = mconcat (zipWithExact (|->) as tys) in
     map (substFcTyInTy ty_subst) arg_tys
   Nothing       -> panic "getRealArgTys: not a type constructor application"
 
+-- Get the real argument types from an expected type and a data constructor.
 getRealDcArgTys :: FcType -> FcDataCon -> FcM [FcType]
 getRealDcArgTys exp_ty dc = do
   (as, arg_tys, _) <- lookupDataConTyM dc
@@ -362,18 +367,21 @@ matchClause dc (u:us) qs def = do
   return (FcAltFc (FcConPat dc us') fc_rhs)
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
--- | Match equations according to (new) or rule
+-- | Match an or-pattern
 matchOr :: [FcTmVar] -> ([PmEqn], PmEqn, [PmEqn]) -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchOr (u:us) (preq, (((FcOrPat p1 p2):ps), rhs), postq) def = do
-  exp_ty      <- lookupTmVarM u
-  tmVarTys    <- extractTmVarTys exp_ty (FcOrPat p1 p2)
-  (tm, tm_ty) <- extendCtxTmZipM tmVarTys (match us [(ps, rhs)] def >>= tcTerm)
-  f           <- foldrM abstractTmVarTy tm tmVarTys
-  let f_ty    = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys
-  y           <- makeVar
-  let y_app   = foldl applyTmVarTy (FcTmVar y) tmVarTys
-  let g_app   = FcGuarded [] y_app
+  exp_ty      <- lookupTmVarM u                         -- Get the expected type of the or-pattern
+  tmVarTys    <- extractTmVarTys exp_ty (FcOrPat p1 p2) -- Extract all term variables + types inside the or-pattern
+  (tm, tm_ty) <- extendCtxTmZipM tmVarTys (match us [(ps, rhs)] def >>= tcTerm) -- Call match on the RHS of the or-pattern + type check
+  f           <- foldrM abstractTmVarTy tm tmVarTys     -- Create the abstraction term that will be put inside the let
+  let f_ty    = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys -- Calculate the type of the abstraction term
+  y           <- makeVar                                -- Create a fresh variable (this will be the let-bound variable)
+  let y_app   = foldl applyTmVarTy (FcTmVar y) tmVarTys -- Create an application term to be used as the "new right hand side"
+  let g_app   = FcGuarded [] y_app                      -- Wrap the application term in a Guarded right hand side
+  -- Call match on "everything else" by replacing the or pattern in-place with two new equations containing the
+  -- the two patterns and using the guarded application term as right hand sides.
   matched     <- extendCtxTmM y f_ty (match (u:us) (preq ++ [(p1:ps, [g_app]), (p2:ps, [g_app])] ++ postq) def)
+  -- Return a let term, binding the fresh variable to the abstraction term and using the result of the above match as body
   return (FcTmLet y f_ty f matched)
 matchOr [] _ _ = panic ("matchOr: empty variable")
 matchOr _ _ _ = panic ("matchOr: no or pattern in equation")
@@ -422,9 +430,11 @@ extractTmVarTys ty (FcConPatNs dc ps) = do
   tys <- getRealDcArgTys ty dc
   concat <$> zipWithM extractTmVarTys tys ps
 
+-- | Create application where given term is applied to term variable in given TmVarTy
 applyTmVarTy :: FcTerm 'Tc -> FcTmVarTy -> FcTerm 'Tc
 applyTmVarTy y (x, _) = FcTmApp y (FcTmVar x)
 
+-- | Create abstraction with fresh variable using the type in given TmVarTy on the given term
 abstractTmVarTy :: FcTmVarTy -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 abstractTmVarTy (x,ty) tm = do
   x' <- makeVar
