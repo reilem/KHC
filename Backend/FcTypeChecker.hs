@@ -286,6 +286,14 @@ isOr :: PmEqn -> Bool
 isOr (((FcOrPat _ _):_), _) = True
 isOr _                      = False
 
+-- | Checks if equations contain an or pattern in the first column and returns it
+extractOr :: [PmEqn] -> Maybe ([PmEqn], PmEqn, [PmEqn])
+extractOr []                              = Nothing
+extractOr (q@(((FcOrPat _ _):_),_):qs)    = Just ([], q, qs)
+extractOr (q:qs)
+  | Just (preq, q', postq) <- extractOr qs = Just (q:preq, q', postq)
+  | otherwise                             = Nothing
+
 -- | Group the equations based on if they start with a variable, constructor, or or-pattern
 partition :: [PmEqn] -> [[PmEqn]]
 partition [] = []
@@ -355,32 +363,34 @@ matchClause dc (u:us) qs def = do
 matchClause _   []    _  _   = panic "matchClause: empty variables"
 
 -- | Match equations according to (new) or rule
-matchOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-matchOr (u:us) ((((FcOrPat p1 p2):ps), rhs):qs) def = do
+matchOr :: [FcTmVar] -> ([PmEqn], PmEqn, [PmEqn]) -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchOr (u:us) (preq, (((FcOrPat p1 p2):ps), rhs), postq) def = do
   exp_ty      <- lookupTmVarM u
   tmVarTys    <- extractTmVarTys exp_ty (FcOrPat p1 p2)
-  (tm, tm_ty) <- extendCtxTmZipM tmVarTys (match us ((ps, rhs) : qs) def >>= tcTerm)
+  (tm, tm_ty) <- extendCtxTmZipM tmVarTys (match us [(ps, rhs)] def >>= tcTerm)
   f           <- foldrM abstractTmVarTy tm tmVarTys
   let f_ty    = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys
   y           <- makeVar
   let y_app   = foldl applyTmVarTy (FcTmVar y) tmVarTys
   let g_app   = FcGuarded [] y_app
-  matched     <- extendCtxTmM y f_ty (match [u] [([p1], [g_app]), ([p2], [g_app])] def)
+  matched     <- extendCtxTmM y f_ty (match (u:us) (preq ++ [(p1:ps, [g_app]), (p2:ps, [g_app])] ++ postq) def)
   return (FcTmLet y f_ty f matched)
-matchOr _ _ _ = panic ("matchOr: called on a non or-pattern equation")
+matchOr [] _ _ = panic ("matchOr: empty variable")
+matchOr _ _ _ = panic ("matchOr: no or pattern in equation")
 
--- | Match a list of equations according to variable, constructor or or-pattern rule
-matchVarConOr :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-matchVarConOr us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
-matchVarConOr us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
-matchVarConOr us (q@(((FcOrPat    _ _):_), _):qs) def = matchOr  us (q:qs) def
-matchVarConOr _  qs                                _   = panic ("matchVarCon: invalid equations: " ++ render (ppr qs))
+-- | Match a list of equations according to variable or constructor rule
+matchVarCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
+matchVarCon us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
+matchVarCon _  qs                                _   = panic ("matchVarCon: invalid equations: " ++ render (ppr qs))
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-match us@(_:_) qs       def = foldrM (matchVarConOr us) def (partition qs)
-match []       qs@(_:_) def = foldrM matchGs            def (extractGrs qs)
-match []       []       def = return def
+match (u:us) qs       def
+  | Just qs' <- extractOr qs = matchOr (u:us) qs' def
+  | otherwise                = foldrM (matchVarCon (u:us)) def (partition qs)
+match []     qs@(_:_) def    = foldrM matchGs              def (extractGrs qs)
+match []     []       def    = return def
 
 -- | Perform match on guarded right hand sides
 matchGs :: FcGuarded 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
