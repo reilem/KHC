@@ -386,11 +386,11 @@ matchVarCon _  qs                                _   = panic ("matchVarCon: inva
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-match (u:us) qs       def
-  | Just qs' <- extractOr qs = matchOr (u:us) qs' def
-  | otherwise                = foldrM (matchVarCon (u:us)) def (partition qs)
-match []     qs@(_:_) def    = foldrM matchGs              def (extractGrs qs)
-match []     []       def    = return def
+match us@(_:_) qs       def
+  | Just qs' <- extractOr qs = matchOr us qs' def
+  | otherwise                = foldrM (matchVarCon us) def (partition qs)
+match []       qs@(_:_) def  = foldrM matchGs          def (extractGrs qs)
+match []       []       def  = return def
 
 -- | Perform match on guarded right hand sides
 matchGs :: FcGuarded 'Tc -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
@@ -415,17 +415,20 @@ extractTmVarTys ty (FcVarPat   x    ) = return [(x, ty)]
 extractTmVarTys ty (FcOrPat    p1 p2) = do
   tvty1 <- extractTmVarTys ty p1
   tvty2 <- extractTmVarTys ty p2
+  -- Filter ensures only identical bindings are extracted. Non-identical
+  -- bindings are the result of wildcards, so should not be used.
   return $ filter (\(x,_) -> any ((x ==) . fst) tvty2) tvty1
 extractTmVarTys ty (FcConPatNs dc ps) = do
   tys <- getRealDcArgTys ty dc
-  concat <$> (zipWithM extractTmVarTys tys ps)
+  concat <$> zipWithM extractTmVarTys tys ps
 
 applyTmVarTy :: FcTerm 'Tc -> FcTmVarTy -> FcTerm 'Tc
 applyTmVarTy y (x, _) = FcTmApp y (FcTmVar x)
 
 abstractTmVarTy :: FcTmVarTy -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-abstractTmVarTy (x,ty) tm = makeVar >>= (\x' ->
-  return $ FcTmAbs x' ty (substVar x (FcTmVar x') tm))
+abstractTmVarTy (x,ty) tm = do
+  x' <- makeVar
+  return $ FcTmAbs x' ty (substVar x (FcTmVar x') tm)
 
 -- * Invoke the complete System F type checker
 -- ----------------------------------------------------------------------------
