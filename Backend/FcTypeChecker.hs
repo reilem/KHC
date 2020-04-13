@@ -370,44 +370,8 @@ matchClause _   []    _  _   = panic "matchClause: empty variables"
 
 -- | Match an or-pattern
 matchOr :: [FcTmVar] -> ([PmEqn], PmEqn, [PmEqn]) -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-matchOr us (preq, (allPs@((FcOrPat p1 p2):ps), rhs), postq) def = do
-  -- 1. Find all free term variables and their types in the rhs:
-  -- * Extract term variables and types from patterns
-  -- * Extract free term variables from rhs
-  -- * Filter pattern term variables and types based on rhs free variables
-  tmvTys <- do
-    patTmVarTys <- extractPatsTmVarTys us allPs
-    let rhsTmvs = ftmvsOf rhs
-    return (filter (\(x,_) -> any (== x) rhsTmvs) patTmVarTys)
-
-  -- 2. Create the components for a let expression that binds the compiled
-  -- right hand side of the or-pattern equation:
-  -- * Rhs of the equation without patterns or variables is compiled and then
-  --   type checked
-  -- * Create an abstraction term that binds the free term variables
-  --   in the right hand side: let_tm
-  -- * Create the arrow type associated with the abstract term: let_ty
-  -- * Create fresh variable to be bound in the let: let_var
-  (let_var, let_ty, let_tm) <- do
-    (tm, tm_ty) <- extendCtxTmZipM tmvTys (match [] [([], rhs)] def >>= tcTerm)
-    ftm         <- foldrM abstractTmVarTy tm tmvTys
-    let fty     = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmvTys
-    f           <- makeVar
-    return (f, fty, ftm)
-
-  -- 3. Create the body that will be used in the let expression:
-  -- * Create guarded application term using the let expression variable
-  --   and previously computed free term variables
-  -- * Create new list of equations containing: all equations before the
-  --   or-pattern, two new equations, and all equations after or-pattern.
-  -- * Continue compilation on new list of equations
-  let_body <- do
-    let grhs  = FcGuarded [] (foldl applyTmVarTy (FcTmVar let_var) tmvTys)
-    let newqs = preq ++ [(p1:ps, [grhs]), (p2:ps, [grhs])] ++ postq
-    extendCtxTmM let_var let_ty (match us newqs def)
-
-  -- 4. Assemble the complete let expression
-  return (FcTmLet let_var let_ty let_tm let_body)
+matchOr us (preq, (((FcOrPat p1 p2):ps), rhs), postq) def =
+  match us (preq ++ [(p1:ps, rhs), (p2:ps, rhs)] ++ postq) def
 matchOr [] _ _ = panic ("matchOr: empty variable")
 matchOr _  _ _ = panic ("matchOr: no or pattern in equation")
 
