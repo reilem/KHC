@@ -304,7 +304,7 @@ instance ContainsFreeTmVars (FcAlt a) FcTmVar where
 
 instance ContainsFreeTmVars (FcGuarded a) FcTmVar where
   ftmvsOf (FcGuarded gs rhs) = let (binds, requires) = ftmvsOfGuards gs in
-    requires `union` (nub (ftmvsOf rhs) \\ binds)
+    (requires `union` (ftmvsOf rhs) \\ binds)
     where
       ftmvsOfGuards :: [FcGuard a] -> ([FcTmVar], [FcTmVar])
       ftmvsOfGuards ((FcPatGuard p e):gs') =
