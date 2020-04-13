@@ -40,7 +40,7 @@ runTest file = do
                       putStrLn "---------------------------- Elaborated Program ---------------------------"
                       putStrLn $ renderWithColor $ ppr fc_pgm
                       putStr "Size: "
-                      print $ length $ render $ ppr fc_pgm
+                      print $ length $ filter (/= ' ') (render $ ppr fc_pgm)
                       putStrLn "------------------------------- Program Type ------------------------------"
                       putStrLn $ renderWithColor $ ppr tc_ty
                       putStrLn "------------------------------ Program Theory -----------------------------"
