@@ -262,8 +262,6 @@ tcAlt scr_ty (FcAltFc (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
 
 type PmEqn = ([FcPat 'Tc], [FcGuarded 'Tc])
 
-type FcTmVarTy = (FcTmVar, FcType)
-
 -- | Convert an Alt to an equation
 altToEqn :: FcAlt 'Tc -> PmEqn
 altToEqn (FcAltTc p grs) = ([p], grs)
@@ -405,40 +403,6 @@ ensureIdenticalTypes types = unless (go types) $ throwError "Type mismatch in ca
     go :: [FcType] -> Bool
     go []       = True
     go (ty:tys) = all (eqFcTypes ty) tys
-
--- | Extracts all term variables and associated types out of the given patterns
-extractPatsTmVarTys :: [FcTmVar] -> [FcPat 'Tc] -> FcM [FcTmVarTy]
-extractPatsTmVarTys []     []     = return []
-extractPatsTmVarTys (u:us) (p:ps) = do
-  exp_ty    <- lookupTmVarM u
-  tmVarTys  <- extractTmVarTys exp_ty p
-  tmVarTys' <- extractPatsTmVarTys us ps
-  return (tmVarTys ++ tmVarTys')
-extractPatsTmVarTys us     ps     =
-  throwErrorM (text "extractPatsTmVarTys, invalid arguments" <+> ppr us <+> ppr ps)
-
--- | Extracts all term variables and associated types out of the given pattern
-extractTmVarTys :: FcType -> FcPat 'Tc -> FcM [FcTmVarTy]
-extractTmVarTys ty (FcVarPat   x    ) = return [(x, ty)]
-extractTmVarTys ty (FcOrPat    p1 p2) = do
-  tvty1 <- extractTmVarTys ty p1
-  tvty2 <- extractTmVarTys ty p2
-  -- Filter ensures only identical bindings are extracted. Non-identical
-  -- bindings are the result of wildcards, so should not be used.
-  return $ filter (\(x,_) -> any ((x ==) . fst) tvty2) tvty1
-extractTmVarTys ty (FcConPatNs dc ps) = do
-  tys <- getRealDcArgTys ty dc
-  concat <$> zipWithM extractTmVarTys tys ps
-
--- | Create application where given term is applied to term variable in given TmVarTy
-applyTmVarTy :: FcTerm 'Tc -> FcTmVarTy -> FcTerm 'Tc
-applyTmVarTy y (x, _) = FcTmApp y (FcTmVar x)
-
--- | Create abstraction with fresh variable using the type in given TmVarTy on the given term
-abstractTmVarTy :: FcTmVarTy -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-abstractTmVarTy (x,ty) tm = do
-  x' <- makeVar
-  return $ FcTmAbs x' ty (substVar x (FcTmVar x') tm)
 
 -- * Invoke the complete System F type checker
 -- ----------------------------------------------------------------------------
