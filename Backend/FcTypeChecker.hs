@@ -19,6 +19,7 @@ import Utils.PrettyPrint
 import Utils.Errors
 import Utils.Utils
 import Utils.Trace
+import Utils.FreeVars
 
 import Control.Monad.Writer
 import Control.Monad.Reader
@@ -369,19 +370,17 @@ matchClause _   []    _  _   = panic "matchClause: empty variables"
 
 -- | Match an or-pattern
 matchOr :: [FcTmVar] -> ([PmEqn], PmEqn, [PmEqn]) -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
-matchOr (u:us) (preq, (((FcOrPat p1 p2):ps), rhs), postq) def = do
-  exp_ty      <- lookupTmVarM u                         -- Get the expected type of the or-pattern
-  tmVarTys    <- extractTmVarTys exp_ty (FcOrPat p1 p2) -- Extract all term variables + types inside the or-pattern
-  (tm, tm_ty) <- extendCtxTmZipM tmVarTys (match us [(ps, rhs)] def >>= tcTerm) -- Call match on the RHS of the or-pattern + type check
-  f           <- foldrM abstractTmVarTy tm tmVarTys     -- Create the abstraction term that will be put inside the let
-  let f_ty    = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmVarTys -- Calculate the type of the abstraction term
-  y           <- makeVar                                -- Create a fresh variable (this will be the let-bound variable)
-  let y_app   = foldl applyTmVarTy (FcTmVar y) tmVarTys -- Create an application term to be used as the "new right hand side"
-  let g_app   = FcGuarded [] y_app                      -- Wrap the application term in a Guarded right hand side
-  -- Call match on "everything else" by replacing the or pattern in-place with two new equations containing the
-  -- the two patterns and using the guarded application term as right hand sides.
+matchOr allUs@(u:us) (preq, (allPs@((FcOrPat p1 p2):ps), rhs), postq) def = do
+  patTmVarTys <- extractPatsTmVarTys allUs allPs
+  let rhsTmvs = ftmvsOf rhs
+  let tmvTys  = filter (\(x,_) -> any (== x) rhsTmvs) patTmVarTys
+  (tm, tm_ty) <- extendCtxTmZipM tmvTys (match [] [([], rhs)] def >>= tcTerm)
+  f           <- foldrM abstractTmVarTy tm tmvTys
+  let f_ty    = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmvTys
+  y           <- makeVar
+  let y_app   = foldl applyTmVarTy (FcTmVar y) tmvTys
+  let g_app   = FcGuarded [] y_app
   matched     <- extendCtxTmM y f_ty (match (u:us) (preq ++ [(p1:ps, [g_app]), (p2:ps, [g_app])] ++ postq) def)
-  -- Return a let term, binding the fresh variable to the abstraction term and using the result of the above match as body
   return (FcTmLet y f_ty f matched)
 matchOr [] _ _ = panic ("matchOr: empty variable")
 matchOr _ _ _ = panic ("matchOr: no or pattern in equation")
@@ -416,6 +415,17 @@ ensureIdenticalTypes types = unless (go types) $ throwError "Type mismatch in ca
     go :: [FcType] -> Bool
     go []       = True
     go (ty:tys) = all (eqFcTypes ty) tys
+
+-- | Extracts all term variables and associated types out of the given patterns
+extractPatsTmVarTys :: [FcTmVar] -> [FcPat 'Tc] -> FcM [FcTmVarTy]
+extractPatsTmVarTys []     []     = return []
+extractPatsTmVarTys (u:us) (p:ps) = do
+  exp_ty    <- lookupTmVarM u
+  tmVarTys  <- extractTmVarTys exp_ty p
+  tmVarTys' <- extractPatsTmVarTys us ps
+  return (tmVarTys ++ tmVarTys')
+extractPatsTmVarTys us     ps     =
+  throwErrorM (text "extractPatsTmVarTys, invalid arguments" <+> ppr us <+> ppr ps)
 
 -- | Extracts all term variables and associated types out of the given pattern
 extractTmVarTys :: FcType -> FcPat 'Tc -> FcM [FcTmVarTy]
