@@ -330,14 +330,14 @@ constructors _                            = return []
 arity :: FcDataCon -> FcM Int
 arity dc = length . fc_dc_arg_tys <$> lookupDataConInfoM dc
 
--- | Get the real argument types from a starting type application, type variables and given types.
+-- | Get the real argument types from a  type application, type variables and given types.
 getRealArgTys :: FcType -> [FcTyVar] -> [FcType] -> [FcType]
 getRealArgTys ty as arg_tys = case tyConAppMaybe ty of
   Just (_, tys) -> let ty_subst = mconcat (zipWithExact (|->) as tys) in
     map (substFcTyInTy ty_subst) arg_tys
   Nothing       -> panic "getRealArgTys: not a type constructor application"
 
--- Get the real argument types from an expected type and a data constructor.
+-- | Get the real argument types from an expected type and a data constructor.
 getRealDcArgTys :: FcType -> FcDataCon -> FcM [FcType]
 getRealDcArgTys exp_ty dc = do
   (as, arg_tys, _) <- lookupDataConTyM dc
@@ -391,7 +391,7 @@ matchOr us (preq, (allPs@((FcOrPat p1 p2):ps), rhs), postq) def = do
   (let_var, let_ty, let_tm) <- do
     (tm, tm_ty) <- extendCtxTmZipM tmvTys (match [] [([], rhs)] def >>= tcTerm)
     ftm         <- foldrM abstractTmVarTy tm tmvTys
-    let fty     = foldr (\(_,ty1) ty2 -> mkFcArrowTy ty1 ty2) tm_ty tmvTys
+    let fty     = mkFcArrowTys (snd $ unzip $ tmvTys) tm_ty
     f           <- makeVar
     return (f, fty, ftm)
 
@@ -409,13 +409,13 @@ matchOr us (preq, (allPs@((FcOrPat p1 p2):ps), rhs), postq) def = do
   -- 4. Assemble the complete let expression
   return (FcTmLet let_var let_ty let_tm let_body)
 matchOr [] _ _ = panic ("matchOr: empty variable")
-matchOr _  _ _ = panic ("matchOr: no or pattern in equation")
+matchOr _  _ _ = panic ("matchOr: no or-pattern in equations")
 
 -- | Match a list of equations according to variable or constructor rule
 matchVarCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
 matchVarCon us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
-matchVarCon _  qs                                _   = panic ("matchVarCon: invalid equations: " ++ render (ppr qs))
+matchVarCon _  qs                               _   = panic ("matchVarCon: invalid equations: " ++ render (ppr qs))
 
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)

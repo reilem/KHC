@@ -27,6 +27,9 @@ import Data.List (nub, (\\), union, intersect)
 mkFcArrowTy :: FcType -> FcType -> FcType
 mkFcArrowTy ty1 ty2 = FcTyApp (FcTyApp (FcTyCon fcArrowTyCon) ty1) ty2
 
+mkFcArrowTys :: [FcType] -> FcType -> FcType
+mkFcArrowTys tys ty = foldr (\ty1 ty2 -> mkFcArrowTy ty1 ty2) ty tys
+
 fcArrowTyCon :: FcTyCon
 fcArrowTyCon = FcTC (mkName (mkSym "(->)") arrowTyConUnique)
 
