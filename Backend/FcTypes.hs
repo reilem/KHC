@@ -290,24 +290,24 @@ instance ContainsFreeTyVars (FcPat a) FcTyVar where
 -- ------------------------------------------------------------------------------
 
 instance ContainsFreeTmVars (FcTerm a) FcTmVar where
-  ftmvsOf (FcTmAbs x _ tm)       = (nub (ftmvsOf tm) \\ [x])
+  ftmvsOf (FcTmAbs x _ tm)       = nub (ftmvsOf tm) \\ [x]
   ftmvsOf (FcTmVar x)            = [x]
   ftmvsOf (FcTmApp tm1 tm2)      = ftmvsOf tm1 `union` ftmvsOf tm2
   ftmvsOf (FcTmTyAbs _a tm)      = ftmvsOf tm
   ftmvsOf (FcTmTyApp tm _ty)     = ftmvsOf tm
   ftmvsOf (FcTmDataCon{})        = []
-  ftmvsOf (FcTmLet x _ tm1 tm2)  = ftmvsOf tm1 `union` (nub (ftmvsOf tm2) \\ [x])
+  ftmvsOf (FcTmLet x _ tm1 tm2)  = ftmvsOf tm1 `union` nub (ftmvsOf tm2) \\ [x]
   ftmvsOf (FcTmCaseFc tm cs)     = ftmvsOf tm `union` ftmvsOf cs
   ftmvsOf (FcTmCaseTc _ _ tm cs) = ftmvsOf tm `union` ftmvsOf cs
   ftmvsOf (FcTmERROR _err _ty)   = []
 
 instance ContainsFreeTmVars (FcAlt a) FcTmVar where
-  ftmvsOf (FcAltFc pat tm)  = nub (ftmvsOf tm) \\ (ftmvsOf pat)
-  ftmvsOf (FcAltTc pat gRs) = nub (ftmvsOf gRs) \\ (ftmvsOf pat)
+  ftmvsOf (FcAltFc pat tm)  = nub (ftmvsOf tm) \\ ftmvsOf pat
+  ftmvsOf (FcAltTc pat gRs) = nub (ftmvsOf gRs) \\ ftmvsOf pat
 
 instance ContainsFreeTmVars (FcGuarded a) FcTmVar where
   ftmvsOf (FcGuarded gs rhs) = let (binds, requires) = ftmvsOfGuards gs in
-    (requires `union` (ftmvsOf rhs) \\ binds)
+    requires `union` ftmvsOf rhs \\ binds
     where
       ftmvsOfGuards :: [FcGuard a] -> ([FcTmVar], [FcTmVar])
       ftmvsOfGuards ((FcPatGuard p e):gs') =
@@ -316,10 +316,10 @@ instance ContainsFreeTmVars (FcGuarded a) FcTmVar where
       ftmvsOfGuards []     = ([], [])
 
 instance ContainsFreeTmVars (FcPat a) FcTmVar where
-  ftmvsOf (FcConPat   _dc xs)  = xs
-  ftmvsOf (FcConPatNs _dc ps)  = concatMap ftmvsOf ps
-  ftmvsOf (FcVarPat   x)       = [x]
-  ftmvsOf (FcOrPat    p1 p2)   = ftmvsOf p1 `intersect` ftmvsOf p2
+  ftmvsOf (FcConPat   _dc xs) = xs
+  ftmvsOf (FcConPatNs _dc ps) = concatMap ftmvsOf ps
+  ftmvsOf (FcVarPat   x)      = [x]
+  ftmvsOf (FcOrPat    p1 p2)  = ftmvsOf p1 `intersect` ftmvsOf p2
 
 -- * Pretty printing
 -- ----------------------------------------------------------------------------
