@@ -4,3 +4,9 @@ dist/*
 # Stack related
 .stack-work
 dist-newstyle
+
+*.o
+
+*.hi
+
+Main

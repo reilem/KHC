@@ -4,7 +4,7 @@
 
 -- | Class ContainsFreeTyVars: collect variables from objects
 
-module Utils.FreeVars (ContainsFreeTyVars(..), subsetOf) where
+module Utils.FreeVars (ContainsFreeTyVars(..), ContainsFreeTmVars(..), subsetOf) where
 
 import Data.List (nub, (\\))
 
@@ -22,3 +22,11 @@ instance (Eq tv, ContainsFreeTyVars a tv, ContainsFreeTyVars b tv) => ContainsFr
 subsetOf :: Eq a => [a] -> [a] -> Bool
 subsetOf xs ys = (xs \\ ys) == []
 
+class ContainsFreeTmVars t tv | t -> tv where
+  ftmvsOf :: t -> [tv]
+
+instance (Eq tv, ContainsFreeTmVars a tv) => ContainsFreeTmVars [a] tv where
+  ftmvsOf = nub . concatMap ftmvsOf
+
+instance (Eq tv, ContainsFreeTmVars a tv, ContainsFreeTmVars b tv) => ContainsFreeTmVars (a, b) tv where
+  ftmvsOf (x,y) = nub (ftmvsOf x ++ ftmvsOf y)

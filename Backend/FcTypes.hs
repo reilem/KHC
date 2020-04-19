@@ -19,13 +19,16 @@ import Utils.FreeVars
 
 import Data.Maybe (isJust)
 import Data.Function (on)
-import Data.List ((\\))
+import Data.List (nub, (\\), union, intersect)
 
 -- * Arrow Type Constructor
 -- ----------------------------------------------------------------------------
 
 mkFcArrowTy :: FcType -> FcType -> FcType
 mkFcArrowTy ty1 ty2 = FcTyApp (FcTyApp (FcTyCon fcArrowTyCon) ty1) ty2
+
+mkFcArrowTys :: [FcType] -> FcType -> FcType
+mkFcArrowTys tys ty = foldr (\ty1 ty2 -> mkFcArrowTy ty1 ty2) ty tys
 
 fcArrowTyCon :: FcTyCon
 fcArrowTyCon = FcTC (mkName (mkSym "(->)") arrowTyConUnique)
@@ -246,7 +249,7 @@ data FcProgram (a :: Phase) = FcPgmDataDecl FcDataDecl    (FcProgram a) -- ^ Dat
                             | FcPgmValDecl  (FcValBind a) (FcProgram a) -- ^ Value Binding
                             | FcPgmTerm     (FcTerm a)                  -- ^ Term
 
--- * Collecting Free Variables Out Of Objects
+-- * Collecting Free Type Variables Out Of Objects
 -- ------------------------------------------------------------------------------
 
 instance ContainsFreeTyVars FcType FcTyVar where
@@ -282,6 +285,41 @@ instance ContainsFreeTyVars (FcPat a) FcTyVar where
   ftyvsOf (FcConPatNs _dc ps)  = concatMap ftyvsOf ps
   ftyvsOf (FcVarPat   _x)      = []
   ftyvsOf (FcOrPat    p1 p2)   = ftyvsOf p1 ++ ftyvsOf p2
+
+-- * Collecting Free Term Variables Out Of Objects
+-- ------------------------------------------------------------------------------
+
+instance ContainsFreeTmVars (FcTerm a) FcTmVar where
+  ftmvsOf (FcTmAbs x _ tm)       = nub (ftmvsOf tm) \\ [x]
+  ftmvsOf (FcTmVar x)            = [x]
+  ftmvsOf (FcTmApp tm1 tm2)      = ftmvsOf tm1 `union` ftmvsOf tm2
+  ftmvsOf (FcTmTyAbs _a tm)      = ftmvsOf tm
+  ftmvsOf (FcTmTyApp tm _ty)     = ftmvsOf tm
+  ftmvsOf (FcTmDataCon{})        = []
+  ftmvsOf (FcTmLet x _ tm1 tm2)  = ftmvsOf tm1 `union` nub (ftmvsOf tm2) \\ [x]
+  ftmvsOf (FcTmCaseFc tm cs)     = ftmvsOf tm `union` ftmvsOf cs
+  ftmvsOf (FcTmCaseTc _ _ tm cs) = ftmvsOf tm `union` ftmvsOf cs
+  ftmvsOf (FcTmERROR _err _ty)   = []
+
+instance ContainsFreeTmVars (FcAlt a) FcTmVar where
+  ftmvsOf (FcAltFc pat tm)  = nub (ftmvsOf tm) \\ ftmvsOf pat
+  ftmvsOf (FcAltTc pat gRs) = nub (ftmvsOf gRs) \\ ftmvsOf pat
+
+instance ContainsFreeTmVars (FcGuarded a) FcTmVar where
+  ftmvsOf (FcGuarded gs rhs) = let (binds, requires) = ftmvsOfGuards gs in
+    requires `union` ftmvsOf rhs \\ binds
+    where
+      ftmvsOfGuards :: [FcGuard a] -> ([FcTmVar], [FcTmVar])
+      ftmvsOfGuards ((FcPatGuard p e):gs') =
+        let (bind, require) = ftmvsOfGuards gs' in
+        ((ftmvsOf p) ++ bind, (ftmvsOf e) ++ require)
+      ftmvsOfGuards []     = ([], [])
+
+instance ContainsFreeTmVars (FcPat a) FcTmVar where
+  ftmvsOf (FcConPat   _dc xs) = xs
+  ftmvsOf (FcConPatNs _dc ps) = concatMap ftmvsOf ps
+  ftmvsOf (FcVarPat   x)      = [x]
+  ftmvsOf (FcOrPat    p1 p2)  = ftmvsOf p1 `intersect` ftmvsOf p2
 
 -- * Pretty printing
 -- ----------------------------------------------------------------------------
