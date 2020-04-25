@@ -641,6 +641,7 @@ unify  untchs eqs
       = Just (mempty, [ty1 :~: ty3, ty2 :~: ty4])
     one_step _us (TyCon {} :~: TyApp {}) = Nothing
     one_step _us (TyApp {} :~: TyCon {}) = Nothing
+    one_step _us (TyUnit :~: TyUnit)     = Just (mempty, [])
     one_step _us (_ :~: TyUnit)          = Nothing
     one_step _us (TyUnit :~: _)          = Nothing
 
