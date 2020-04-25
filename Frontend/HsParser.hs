@@ -255,6 +255,8 @@ pTerm  =  pAppTerm
           <*> pTerm
           <*  symbol "of"
           <*> some (indent pAlt)
+      <|> TmUnit
+          <$ symbol "()"
 
 -- Parse a primary parsed pattern (highest priority)
 pPrimPat :: PsM PsdPat

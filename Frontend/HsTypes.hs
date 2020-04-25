@@ -114,6 +114,7 @@ data Term a = TmVar (HsTmVar a)                   -- ^ Term variable
             | TmApp (Term a) (Term a)             -- ^ Term application
             | TmLet (HsTmVar a) (Term a) (Term a) -- ^ Letrec var = term in term
             | TmCase (Term a) [HsAlt a]           -- ^ case e of { ... }
+            | TmUnit                              -- ^ Unit term
 
 -- | Parsed/renamed term
 type PsTerm = Term Sym
@@ -217,6 +218,7 @@ hsTyPatToMonoTy (HsTyVarPat (a :| _kind)) = TyVar a
 data MonoTy a = TyCon (HsTyCon a)           -- ^ Type Constructor
               | TyApp (MonoTy a) (MonoTy a) -- ^ Type Application
               | TyVar (HsTyVar a)           -- ^ Type variable
+              | TyUnit                      -- ^ Unit Type
 
 -- | Parsed/renamed monotype
 type PsMonoTy = MonoTy Sym
@@ -483,6 +485,7 @@ instance Eq a => ContainsFreeTyVars (MonoTy a) (HsTyVar a) where
       ftyvsOfMonoTy (TyCon {})      = []
       ftyvsOfMonoTy (TyApp ty1 ty2) = ftyvsOfMonoTy ty1 ++ ftyvsOfMonoTy ty2
       ftyvsOfMonoTy (TyVar v)       = [v]
+      ftyvsOfMonoTy TyUnit          = []
 
 instance Eq a => ContainsFreeTyVars (Ctr a) (HsTyVar a) where
   ftyvsOf (Ctr [] [] ct)        = ftyvsOf ct
@@ -593,6 +596,7 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (Term a) where
   ppr (TmLet v tm1 tm2)  = colorDoc yellow (text "let") <+> ppr v <+> equals <+> ppr tm1
                         $$ colorDoc yellow (text "in")  <+> ppr tm2
   ppr (TmCase scr alts)  = hang (text "case" <+> ppr scr <+> text "of") 2 (vcat $ map ppr alts)
+  ppr TmUnit             = text "()"
 
   needsParens (TmAbs  {}) = True
   needsParens (TmApp  {}) = True
@@ -600,6 +604,7 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (Term a) where
   needsParens (TmCase {}) = True
   needsParens (TmVar  {}) = False
   needsParens (TmCon  {}) = False
+  needsParens TmUnit      = False
 
 -- | Pretty print type patterns
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsTyPat a) where
@@ -620,10 +625,12 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (MonoTy a) where
     | TyApp {} <- ty1 = ppr ty1    <+> pprPar ty2
     | otherwise       = pprPar ty1 <+> pprPar ty2
   ppr (TyVar var)     = ppr var
+  ppr TyUnit          = text "()"
 
   needsParens (TyCon {}) = False
   needsParens (TyApp {}) = True
   needsParens (TyVar {}) = False
+  needsParens TyUnit     = False
 
 -- | Pretty print qualified types
 instance (Symable a, PrettyPrint a) => PrettyPrint (QualTy a) where

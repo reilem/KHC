@@ -249,6 +249,7 @@ wfElabMonoTy (TyApp ty1 ty2) = do
 wfElabMonoTy (TyVar v) = do
   kind <- lookupTyVarM v
   return (kind, rnTyVarToFcType v)
+wfElabMonoTy TyUnit = return (KStar, FcTyUnit)
 
 -- | Elaborate a qualified type
 wfElabQualTy :: RnQualTy -> TcM (Kind, FcType)
@@ -300,6 +301,7 @@ elabMonoTy :: RnMonoTy -> TcM FcType
 elabMonoTy (TyCon tc)      = FcTyCon <$> lookupTyCon tc
 elabMonoTy (TyApp ty1 ty2) = FcTyApp <$> elabMonoTy ty1 <*> elabMonoTy ty2
 elabMonoTy (TyVar v)       = return (rnTyVarToFcType v)
+elabMonoTy TyUnit          = return FcTyUnit
 
 -- | Elaborate a class constraint (DO NOT CHECK WELL-SCOPEDNESS)
 elabClsCt :: RnClsCt -> TcM FcType
@@ -427,6 +429,7 @@ elabTerm (TmVar x)         = elabTmVar x
 elabTerm (TmCon dc)        = liftGenM (elabTmCon dc)
 elabTerm (TmLet x tm1 tm2) = elabTmLet x tm1 tm2
 elabTerm (TmCase scr alts) = elabTmCase scr alts
+elabTerm TmUnit            = return (TyUnit, FcTmUnit)
 
 -- | Elaborate a term application
 elabTmApp :: RnTerm -> RnTerm -> GenM (RnMonoTy, FcTerm 'Tc)
@@ -638,6 +641,8 @@ unify  untchs eqs
       = Just (mempty, [ty1 :~: ty3, ty2 :~: ty4])
     one_step _us (TyCon {} :~: TyApp {}) = Nothing
     one_step _us (TyApp {} :~: TyCon {}) = Nothing
+    one_step _us (_ :~: TyUnit) = Nothing
+    one_step _us (TyUnit :~: _) = Nothing
 
     go :: (a -> Maybe b) -> [a] -> Maybe (b, [a])
     go _p []     = Nothing
@@ -649,6 +654,7 @@ occursCheck :: RnTyVar -> RnMonoTy -> Bool
 occursCheck _ (TyCon {})      = True
 occursCheck a (TyApp ty1 ty2) = occursCheck a ty1 && occursCheck a ty2
 occursCheck a (TyVar b)       = a /= b
+occursCheck _ TyUnit          = False
 
 -- * Overlap Checking
 -- ------------------------------------------------------------------------------
