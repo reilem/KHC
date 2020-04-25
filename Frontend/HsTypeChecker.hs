@@ -641,8 +641,8 @@ unify  untchs eqs
       = Just (mempty, [ty1 :~: ty3, ty2 :~: ty4])
     one_step _us (TyCon {} :~: TyApp {}) = Nothing
     one_step _us (TyApp {} :~: TyCon {}) = Nothing
-    one_step _us (_ :~: TyUnit) = Nothing
-    one_step _us (TyUnit :~: _) = Nothing
+    one_step _us (_ :~: TyUnit)          = Nothing
+    one_step _us (TyUnit :~: _)          = Nothing
 
     go :: (a -> Maybe b) -> [a] -> Maybe (b, [a])
     go _p []     = Nothing
@@ -654,7 +654,7 @@ occursCheck :: RnTyVar -> RnMonoTy -> Bool
 occursCheck _ (TyCon {})      = True
 occursCheck a (TyApp ty1 ty2) = occursCheck a ty1 && occursCheck a ty2
 occursCheck a (TyVar b)       = a /= b
-occursCheck _ TyUnit          = False
+occursCheck _ TyUnit          = True
 
 -- * Overlap Checking
 -- ------------------------------------------------------------------------------
