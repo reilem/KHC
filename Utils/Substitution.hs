@@ -123,7 +123,8 @@ instance SubstVar FcTyVar FcType (FcPat a) where
   substVar _a _ty (FcConPat dc xs)   = FcConPat dc xs
   substVar _a _ty (FcConPatNs dc ps) = FcConPatNs dc ps
   substVar _a _ty (FcVarPat x)       = FcVarPat x
-  substVar a ty (FcOrPat p1 p2)      = FcOrPat (substVar a ty p1) (substVar a ty p2)
+  substVar a  ty  (FcOrPat p1 p2)    = FcOrPat (substVar a ty p1) (substVar a ty p2)
+  substVar _a _ty FcUnitPat          = FcUnitPat
 
 -- * Target Language SubstVar Instances (Term Substitution)
 -- ------------------------------------------------------------------------------
@@ -172,6 +173,7 @@ instance SubstVar FcTmVar (FcTerm a) (FcPat a) where
     | otherwise         = (FcVarPat y)
   substVar x xtm (FcConPatNs dc ps) = FcConPatNs dc (substVar x xtm ps)
   substVar x xtm (FcOrPat    p1 p2) = FcOrPat (substVar x xtm p1) (substVar x xtm p2)
+  substVar _ _   FcUnitPat          = FcUnitPat
 
 -- ------------------------------------------------------------------------------
 
@@ -448,6 +450,7 @@ freshenGuardLclBndrs (FcPatGuard p tm) = do
   return (FcPatGuard p' tm', substs)
 
 freshenPatLclBndrs :: MonadUnique m => FcPat a -> m (FcPat a, BndrSubsts)
+freshenPatLclBndrs FcUnitPat        = return (FcUnitPat, [])
 freshenPatLclBndrs (FcConPat dc xs) = do
   ys  <- mapM (\_ -> freshFcTmVar) xs
   return (FcConPat dc ys, zip xs ys)
@@ -472,6 +475,7 @@ freshenPatLclBndrs (FcOrPat p1 p2) = do
     applySubsts []          p = p
     applySubsts ((x, y):xs) p = apply x y (applySubsts xs p)
     apply :: FcTmVar -> FcTmVar -> FcPat a -> FcPat a
+    apply _ _ FcUnitPat          = FcUnitPat
     apply a b (FcConPat dc xs)   = FcConPat dc (map (\x -> if a == x then b else x) xs)
     apply a b (FcVarPat x)
       | a == x                   = FcVarPat b

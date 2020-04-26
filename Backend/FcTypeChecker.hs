@@ -258,7 +258,11 @@ tcAlt scr_ty (FcAltFc (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
     (fc_rhs, ty)     <- extendCtxTmsM xs real_arg_tys (tcTerm rhs)
     return (FcAltFc (FcConPat dc xs) fc_rhs, ty)
   Nothing -> throwErrorM (text "destructScrTy" <+> colon <+> text "Not a tycon application")
-
+tcAlt scr_ty (FcAltFc FcUnitPat rhs)
+  | FcTyUnit <- scr_ty = do
+    (fc_rhs, ty) <- tcTerm rhs
+    return (FcAltFc FcUnitPat fc_rhs, ty)
+  | otherwise = throwErrorM (text "tcAlt" <+> colon <+> text "The type of the scrutinee should be Unit, but is:" <+> ppr scr_ty)
 -- * Pattern desugaring
 -- ---------------------------------------------
 
@@ -457,6 +461,7 @@ extractPatsTmVarTys us     ps     =
 
 -- | Extracts all term variables and associated types out of the given pattern
 extractTmVarTys :: FcType -> FcPat 'Tc -> FcM [FcTmVarTy]
+extractTmVarTys _  FcUnitPat          = return []
 extractTmVarTys ty (FcVarPat   x    ) = return [(x, ty)]
 extractTmVarTys ty (FcOrPat    p1 p2) = do
   tvty1 <- extractTmVarTys ty p1

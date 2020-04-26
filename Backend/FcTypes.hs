@@ -198,6 +198,7 @@ data FcPat (a :: Phase) where
   FcConPatNs  :: FcDataCon -> [FcPat 'Tc] -> FcPat 'Tc
   FcVarPat    :: FcTmVar   -> FcPat 'Tc
   FcOrPat     :: FcPat 'Tc -> FcPat 'Tc   -> FcPat 'Tc
+  FcUnitPat   :: FcPat a
 
 -- | Case alternative(s)
 data FcAlt (a :: Phase) where
@@ -291,6 +292,7 @@ instance ContainsFreeTyVars (FcPat a) FcTyVar where
   ftyvsOf (FcConPatNs _dc ps)  = concatMap ftyvsOf ps
   ftyvsOf (FcVarPat   _x)      = []
   ftyvsOf (FcOrPat    p1 p2)   = ftyvsOf p1 ++ ftyvsOf p2
+  ftyvsOf FcUnitPat            = []
 
 -- * Collecting Free Term Variables Out Of Objects
 -- ------------------------------------------------------------------------------
@@ -327,6 +329,7 @@ instance ContainsFreeTmVars (FcPat a) FcTmVar where
   ftmvsOf (FcConPatNs _dc ps) = concatMap ftmvsOf ps
   ftmvsOf (FcVarPat   x)      = [x]
   ftmvsOf (FcOrPat    p1 p2)  = ftmvsOf p1 `intersect` ftmvsOf p2
+  ftmvsOf FcUnitPat           = []
 
 -- * Pretty printing
 -- ----------------------------------------------------------------------------
@@ -414,10 +417,12 @@ instance PrettyPrint (FcPat a) where
   ppr (FcConPatNs dc ps)          = ppr dc <+> hsep (map pprPar ps)
   ppr (FcVarPat   x)              = ppr x
   ppr (FcOrPat    p1 p2)          = pprPar p1 <+> text "||" <+> pprPar p2
+  ppr FcUnitPat                   = text "()"
   needsParens (FcVarPat   _)      = False
   needsParens (FcConPat   _dx xs) = length xs > 0
   needsParens (FcConPatNs _dx ps) = length ps > 0
   needsParens (FcOrPat    _   _ ) = False
+  needsParens FcUnitPat           = False
 
 -- | Pretty print case alternatives
 instance PrettyPrint (FcAlt a) where
