@@ -21,4 +21,3 @@ instance Eq Bool where
 
 -- | Program expression
 \x. x
-
