@@ -110,5 +110,20 @@ matchTheAlts  dc  args ((FcAltFc (FcConPat dc' xs) rhs):rest)
 -- collapseProgram :: FcProgram 'Fc -> FcTerm 'Fc
 -- smallStep :: MonadUnique m => FcTerm 'Fc -> m (Maybe (FcTerm 'Fc))
 
--- groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
--- evalLoop :: MonadUnique m => FcTerm 'Fc -> m (Either String (FcTerm 'Fc))
+groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
+groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) FcTyUnit
+groundTerm (FcTmAbs x ty t1) = FcTmApp (FcTmAbs x ty (groundTerm t1)) FcTmUnit
+groundTerm t                 = t
+
+evalLoop :: MonadUnique m => FcTerm 'Fc -> m (Either String (FcTerm 'Fc))
+evalLoop t = smallStep t >>= \case
+  Just t'  -> evalLoop t'
+  Nothing  -> case t of
+    FcTmERROR err _ -> return $ Left err
+    res             -> return $ Right res
+
+fcEvaluate :: UniqueSupply -> FcProgram 'Fc -> (Either String (FcTerm 'Fc), UniqueSupply)
+fcEvaluate us pgm =
+  let pgmTm = collapseProgram pgm in
+  let gtm   = groundTerm pgmTm in
+  runUniqueSupplyM (evalLoop gtm) us
