@@ -296,7 +296,7 @@ unitTyConInfo :: HsTyConInfo
 unitTyConInfo = HsTCInfo rnUnitTyCon
                          []
                          fcUnitTyCon
-                         []
+                         [rnUnitDataCon]
 
 psUnitDataCon :: PsDataCon
 psUnitDataCon = HsDC unitSym

@@ -439,8 +439,8 @@ hsRename us pgm = runWriter
   where
     rn_init_ctx     = mempty
     rn_init_gbl_env = RnEnv { rn_env_cls_info = mempty
-                            , rn_env_dc_info  = mempty
-                            , rn_env_tc_info  = extendAssocList psArrowTyCon arrowTyConInfo mempty
+                            , rn_env_dc_info  = extendAssocList psUnitDataCon unitDataConInfo mempty
+                            , rn_env_tc_info  = extendAssocList psUnitTyCon unitTyConInfo (extendAssocList psArrowTyCon arrowTyConInfo mempty)
                             }
 
 -- | Throw an error
