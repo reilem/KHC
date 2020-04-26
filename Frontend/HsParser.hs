@@ -229,7 +229,8 @@ pTyVarWithKind = liftA2 (:|) pTyVar (symbol "::" *> pKind)
 
 -- | Parse a term (highest priority)
 pPrimTerm :: PsM PsTerm
-pPrimTerm  =  TmVar <$> pTmVar
+pPrimTerm  =  TmUnit <$ symbol "()"
+          <|> TmVar <$> pTmVar
           <|> TmCon <$> pDataCon
           <|> parens pTerm
 

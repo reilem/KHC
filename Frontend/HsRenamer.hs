@@ -158,6 +158,7 @@ rnMonoTy :: PsMonoTy -> RnM RnMonoTy
 rnMonoTy (TyCon tc)      = TyCon <$> lookupTyCon tc
 rnMonoTy (TyApp ty1 ty2) = TyApp <$> rnMonoTy ty1 <*> rnMonoTy ty2
 rnMonoTy (TyVar psa)     = TyVar <$> lookupTyVarM psa
+rnMonoTy TyUnit          = return TyUnit
 
 -- | Rename a qualified type
 rnQualTy :: PsQualTy -> RnM RnQualTy
@@ -216,6 +217,7 @@ rnTerm (TmLet x tm1 tm2)  = do
   rntm2 <- extendCtxTmM x rnx (rnTerm tm2)
   return (TmLet rnx rntm1 rntm2)
 rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
+rnTerm TmUnit             = return TmUnit
 
 -- | Rename a pattern
 rnPat :: PsPat -> RnM (RnPat, RnTmVarBinds)

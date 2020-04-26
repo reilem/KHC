@@ -205,6 +205,7 @@ tcTerm (FcTmERROR s ty) = do
   unless (kind == KStar) $
     throwError "tcTerm: Kind mismatch (FcTmERROR)"
   return (FcTmERROR s ty, ty)
+tcTerm FcTmUnit = return (FcTmUnit, FcTyUnit)
 
 -- | Kind check a type
 tcType :: FcType -> FcM Kind
@@ -222,6 +223,7 @@ tcType (FcTyApp ty1 ty2) = do
     KArr k1a k1b | k1a == k2 -> return k1b
     _otherwise               -> throwError "tcType: Kind mismatch (FcTyApp)"
 tcType (FcTyCon tc) = lookupTyConKindM tc
+tcType FcTyUnit     = return KStar
 
 -- | Flatten out any or patterns in the alternatives
 -- flatAlts :: FcAlts 'Tc -> FcAlts 'Tc

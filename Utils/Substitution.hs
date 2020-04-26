@@ -40,6 +40,7 @@ instance SubstVar RnTyVar RnMonoTy RnMonoTy where
       | otherwise -> TyVar b
     TyCon tc      -> TyCon tc
     TyApp ty1 ty2 -> TyApp (substVar a ty ty1) (substVar a ty ty2)
+    TyUnit        -> TyUnit
 
 -- | Substitute a type variable for a type in a class constraint
 instance SubstVar RnTyVar RnMonoTy RnClsCt where
@@ -87,6 +88,7 @@ instance SubstVar FcTyVar FcType FcType where
       | otherwise   -> FcTyAbs b (substVar a ty ty1)
     FcTyApp ty1 ty2 -> FcTyApp (substVar a ty ty1) (substVar a ty ty2)
     FcTyCon tc      -> FcTyCon tc
+    FcTyUnit        -> FcTyUnit
 
 -- | Substitute a type variable for a type in a term
 instance SubstVar FcTyVar FcType (FcTerm a) where
@@ -103,6 +105,7 @@ instance SubstVar FcTyVar FcType (FcTerm a) where
     FcTmCaseFc tm cs     -> FcTmCaseFc (substVar a aty tm) (map (substVar a aty) cs)
     FcTmCaseTc ty1 ty2 tm cs -> FcTmCaseTc (substVar a aty ty1) (substVar a aty ty2) (substVar a aty tm) (map (substVar a aty) cs)
     FcTmERROR s ty       -> FcTmERROR s (substVar a aty ty)
+    FcTmUnit             -> FcTmUnit
 
 -- | Substitute a type variable for a type in a case alternative
 instance SubstVar FcTyVar FcType (FcAlt a) where
@@ -145,6 +148,7 @@ instance SubstVar FcTmVar (FcTerm a) (FcTerm a) where
     FcTmCaseFc tm cs -> FcTmCaseFc (substVar x xtm tm) (map (substVar x xtm) cs)
     FcTmCaseTc ty1 ty2 tm cs -> FcTmCaseTc ty1 ty2 (substVar x xtm tm) (map (substVar x xtm) cs)
     FcTmERROR s ty   -> FcTmERROR s ty
+    FcTmUnit         -> FcTmUnit
 
 -- | Substitute a term variable for a term in a case alternative
 instance SubstVar FcTmVar (FcTerm a) (FcAlt a) where
@@ -357,11 +361,13 @@ alphaEqFcTypes (FcTyAbs a ty1) (FcTyAbs b ty2) = do
   alphaEqFcTypes ty1' ty2'
 alphaEqFcTypes (FcTyApp ty1 ty2) (FcTyApp ty3 ty4) = liftM2 (&&) (alphaEqFcTypes ty1 ty3) (alphaEqFcTypes ty2 ty4)
 alphaEqFcTypes (FcTyCon tc1)     (FcTyCon tc2)     = return (tc1 == tc2)
+alphaEqFcTypes FcTyUnit          FcTyUnit          = return True
 
 alphaEqFcTypes (FcTyVar {}) _ = return False
 alphaEqFcTypes (FcTyAbs {}) _ = return False
 alphaEqFcTypes (FcTyApp {}) _ = return False
 alphaEqFcTypes (FcTyCon {}) _ = return False
+alphaEqFcTypes FcTyUnit     _ = return False
 
 -- * Freshen up all local binders
 -- ------------------------------------------------------------------------------
@@ -390,6 +396,7 @@ instance FreshenLclBndrs FcType where
     FcTyAbs b <$> freshenLclBndrs (substVar a (FcTyVar b) ty)
   freshenLclBndrs (FcTyApp ty1 ty2) = FcTyApp <$> freshenLclBndrs ty1 <*> freshenLclBndrs ty2
   freshenLclBndrs (FcTyCon tc)      = return (FcTyCon tc)
+  freshenLclBndrs FcTyUnit          = return FcTyUnit
 
 -- | Freshen the (type + term) binders of a System F term
 instance FreshenLclBndrs (FcTerm a) where
@@ -409,6 +416,7 @@ instance FreshenLclBndrs (FcTerm a) where
   freshenLclBndrs (FcTmCaseFc tm cs) = FcTmCaseFc <$> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
   freshenLclBndrs (FcTmCaseTc ty1 ty2 tm cs) = FcTmCaseTc <$> freshenLclBndrs ty1 <*> freshenLclBndrs ty2 <*> freshenLclBndrs tm <*> mapM freshenLclBndrs cs
   freshenLclBndrs (FcTmERROR s ty)   = FcTmERROR s <$> freshenLclBndrs ty
+  freshenLclBndrs FcTmUnit           = return FcTmUnit
 
 type BndrSubsts = [(FcTmVar, FcTmVar)]
 
