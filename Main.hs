@@ -12,6 +12,8 @@ import Utils.PrettyPrint
 
 import System.Environment (getArgs)
 
+import Backend.FcEvaluate ()
+
 main :: IO ()
 main = getArgs >>= \case
   [filename] -> runTest filename

@@ -336,6 +336,10 @@ substFcTyInAlt = sub_rec -- XXX: subst (FcAlt p tm) = FcAlt p (substFcTyInTm sub
 
 type FcTmSubst a = Sub FcTmVar (FcTerm a)
 
+-- | TODO: Document me.
+buildFcTmSubst :: [(FcTmVar, FcTerm a)] -> FcTmSubst a
+buildFcTmSubst = foldl (\s (x,y) -> SCons s x y) SNil
+
 -- | Apply a term substitution to a term
 substFcTmInTm :: (FcTmSubst a) -> (FcTerm a) -> (FcTerm a)
 substFcTmInTm = sub_rec
