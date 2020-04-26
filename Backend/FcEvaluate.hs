@@ -113,7 +113,6 @@ matchTheAlts  dc  args ((FcAltFc (FcConPat dc' xs) rhs):rest)
 
 groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
 groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) FcTyUnit
-groundTerm (FcTmAbs x ty t1) = FcTmApp (FcTmAbs x ty (groundTerm t1)) FcTmUnit
 groundTerm t                 = t
 
 evalLoop :: MonadUnique m => FcTerm 'Fc -> m (Either String (FcTerm 'Fc))
