@@ -19,6 +19,11 @@ import Utils.Unique
 import Utils.Utils
 import Data.Maybe
 
+-- * Evaluation Monad
+-- ----------------------------------------------------------------------------
+
+type EvM = UniqueSupplyM
+
 -- * Operational Semantics
 -- ----------------------------------------------------------------------------
 
@@ -48,7 +53,7 @@ collapseProgram = \case
   FcPgmValDecl (FcValBind x ty e1) p -> FcTmLet x ty e1 $ collapseProgram p
 
 -- | Evaluate an expression (small-step).
-smallStep :: MonadUnique m => FcTerm 'Fc -> m (Maybe (FcTerm 'Fc))
+smallStep :: FcTerm 'Fc -> EvM (Maybe (FcTerm 'Fc))
 -- Values (see why we need or-patterns :P)
 smallStep (FcTmAbs {})     = pure Nothing
 smallStep (FcTmTyAbs {})   = pure Nothing
@@ -91,12 +96,12 @@ smallStep (FcTmCaseFc scr alts) = smallStep scr >>= \case
   Just scr' -> pure $ Just $ FcTmCaseFc scr' alts
   Nothing   -> pure $ Nothing
 
-matchTheUnit :: MonadUnique m => [FcAlt 'Fc] -> m (Maybe (FcTerm 'Fc))
+matchTheUnit :: [FcAlt 'Fc] -> EvM (Maybe (FcTerm 'Fc))
 matchTheUnit []                              = error "<unit impossible: pm compiler failed!>"
 matchTheUnit ((FcAltFc FcUnitPat     rhs):_) = pure $ Just rhs
 matchTheUnit ((FcAltFc (FcConPat {}) _  ):_) = error "<unit impossible: elab failed!>"
 
-matchTheAlts :: MonadUnique m => FcDataCon -> [FcTerm 'Fc] -> [FcAlt 'Fc] -> m (Maybe (FcTerm 'Fc))
+matchTheAlts :: FcDataCon -> [FcTerm 'Fc] -> [FcAlt 'Fc] -> EvM (Maybe (FcTerm 'Fc))
 matchTheAlts _dc _args []                           = error "<impossible: pm compiler failed!>"
 matchTheAlts _dc _args ((FcAltFc FcUnitPat _rhs):_) = error "<impossible: elab failed!>"
 matchTheAlts  dc  args ((FcAltFc (FcConPat dc' xs) rhs):rest)
@@ -115,15 +120,24 @@ groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
 groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) FcTyUnit
 groundTerm t                 = t
 
-evalLoop :: MonadUnique m => FcTerm 'Fc -> m (Either String (FcTerm 'Fc))
-evalLoop t = smallStep t >>= \case
-  Just t'  -> evalLoop t'
+-- | Follows lazy operations semantics
+fullStep :: FcTerm 'Fc -> EvM (Either String (FcTerm 'Fc))
+fullStep t = smallStep t >>= \case
+  Just t'  -> fullStep t'
   Nothing  -> case t of
     FcTmERROR err _ -> return $ Left err
     res             -> return $ Right res
+
+-- | Fully evaluates all branches, by calling fullStep
+fullEval :: FcTerm 'Fc -> EvM (Either String (FcTerm 'Fc))
+fullEval t = fullStep t >>= \case
+  Right (FcTmApp t1 t2) -> fullEval t2 >>= \case
+    Right t2' -> fullStep (FcTmApp t1 t2')
+    Left err  -> return $ Left err
+  result -> return $ result
 
 fcEvaluate :: UniqueSupply -> FcProgram 'Fc -> (Either String (FcTerm 'Fc), UniqueSupply)
 fcEvaluate us pgm =
   let pgmTm = collapseProgram pgm in
   let gtm   = groundTerm pgmTm in
-  runUniqueSupplyM (evalLoop gtm) us
+  runUniqueSupplyM (fullEval gtm) us
