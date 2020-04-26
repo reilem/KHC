@@ -258,7 +258,11 @@ tcAlt scr_ty (FcAltFc (FcConPat dc xs) rhs) = case tyConAppMaybe scr_ty of
     (fc_rhs, ty)     <- extendCtxTmsM xs real_arg_tys (tcTerm rhs)
     return (FcAltFc (FcConPat dc xs) fc_rhs, ty)
   Nothing -> throwErrorM (text "destructScrTy" <+> colon <+> text "Not a tycon application")
-
+tcAlt scr_ty (FcAltFc FcUnitPat rhs)
+  | FcTyUnit <- scr_ty = do
+    (fc_rhs, ty) <- tcTerm rhs
+    return (FcAltFc FcUnitPat fc_rhs, ty)
+  | otherwise = throwErrorM (text "tcAlt" <+> colon <+> text "The type of the scrutinee should be Unit, but is:" <+> ppr scr_ty)
 -- * Pattern desugaring
 -- ---------------------------------------------
 
@@ -289,6 +293,11 @@ isOr :: PmEqn -> Bool
 isOr (((FcOrPat _ _):_), _) = True
 isOr _                      = False
 
+-- | Check if first pattern of equation is a unit pattern
+isUnit :: PmEqn -> Bool
+isUnit ((FcUnitPat:_), _) = True
+isUnit _                  = False
+
 -- | If given equations list contains an or-pattern in first column:
 -- |   return a Just tuple containing: 'all equations before the or-pattern',
 -- |   'the equation containing the or pattern' and 'all equations after'
@@ -304,9 +313,10 @@ extractOr (q:qs)
 partition :: [PmEqn] -> [[PmEqn]]
 partition [] = []
 partition qs@(_:_)
-  | (varqs@(_:_), rest) <- span isVar qs = varqs : partition rest
-  | (conqs@(_:_), rest) <- span isCon qs = conqs : partition rest
-  | (orqs@(_:_) , rest) <- span isOr  qs = orqs  : partition rest
+  | (varqs@(_:_), rest)   <- span isVar  qs = varqs : partition rest
+  | (conqs@(_:_), rest)   <- span isCon  qs = conqs : partition rest
+  | (orqs@(_:_) , rest)   <- span isOr   qs = orqs  : partition rest
+  | (unitqs@(_:_) , rest) <- span isUnit qs = unitqs  : partition rest
 partition qs = panic ("partition: impossible: " ++ (render $ ppr qs))
 
 -- | Extracts Guarded right hand sides from all equations into one list
@@ -349,6 +359,12 @@ getRealDcArgTys exp_ty dc = do
 matchVar :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVar (u:us) qs def = match us [(ps, substVar v (FcTmVar u) rhs) | ((FcVarPat v):ps, rhs) <- qs] def
 matchVar []     _  _   = panic "matchVar: empty variables"
+
+matchUnit :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchUnit (u:us) qs def = do
+  tm <- match us (map (\((FcUnitPat:ps), rhs) -> (ps, rhs)) qs) def
+  return (FcTmCaseFc (FcTmVar u) [(FcAltFc FcUnitPat tm)])
+matchUnit []     _  _   = panic "matchUnit: empty variables"
 
 -- | Match equations according to the constructor rule
 matchCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
@@ -417,6 +433,7 @@ matchOr _  _ _ = panic ("matchOr: no or-pattern in equations")
 matchVarCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
 matchVarCon us (q@(((FcVarPat   _  ):_), _):qs) def = matchVar us (q:qs) def
+matchVarCon us (q@((FcUnitPat       :_), _):qs) def = matchUnit us (q:qs) def
 matchVarCon _  qs                               _   = panic ("matchVarCon: invalid equations: " ++ render (ppr qs))
 
 -- | Main match function
@@ -457,6 +474,7 @@ extractPatsTmVarTys us     ps     =
 
 -- | Extracts all term variables and associated types out of the given pattern
 extractTmVarTys :: FcType -> FcPat 'Tc -> FcM [FcTmVarTy]
+extractTmVarTys _  FcUnitPat          = return []
 extractTmVarTys ty (FcVarPat   x    ) = return [(x, ty)]
 extractTmVarTys ty (FcOrPat    p1 p2) = do
   tvty1 <- extractTmVarTys ty p1

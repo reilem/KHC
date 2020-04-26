@@ -233,6 +233,7 @@ rnPat (HsVarPat x)     = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
 rnPat HsWildPat        = return (HsWildPat, [])
+rnPat HsUnitPat        = return (HsUnitPat, [])
 rnPat (HsOrPat p1 p2)  = do
   (rnp1, binds1) <- rnPat p1
   (rnp2, binds2) <- rnPat p2

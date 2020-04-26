@@ -140,11 +140,13 @@ data PsdPat = PsdVarPat (HsTmVar Sym)
             | PsdAppPat PsdPat PsdPat
             | PsdOrPat  PsdPat PsdPat
             | PsdWildPat
+            | PsdUnitPat
 
 data HsPat a = HsVarPat (HsTmVar a)
              | HsConPat (HsDataCon a) [HsPat a]
              | HsOrPat (HsPat a) (HsPat a)
              | HsWildPat
+             | HsUnitPat
 
 type PsPat = HsPat Sym
 type RnPat = HsPat Name
@@ -171,10 +173,12 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (HsPat a) where
   ppr (HsVarPat x    )        = ppr x
   ppr (HsOrPat  p1 p2)        = pprPar p1 <+> text "||" <+> pprPar p2
   ppr HsWildPat               = text "_"
+  ppr HsUnitPat               = text "()"
   needsParens (HsConPat _ xs) = length xs > 0
   needsParens (HsVarPat _   ) = False
   needsParens (HsOrPat  _  _) = False
   needsParens HsWildPat       = False
+  needsParens HsUnitPat       = False
 
 instance PrettyPrint PsdPat where
   ppr (PsdAppPat p1 p2)       = ppr p1 <+> ppr p2
@@ -182,11 +186,13 @@ instance PrettyPrint PsdPat where
   ppr (PsdConPat dc   )       = ppr dc
   ppr (PsdOrPat  p1 p2)       = pprPar p1 <+> text "||" <+> pprPar p2
   ppr PsdWildPat              = text "_"
+  ppr PsdUnitPat              = text "()"
   needsParens (PsdAppPat _ _) = True
   needsParens (PsdVarPat _  ) = False
   needsParens (PsdConPat _  ) = False
   needsParens (PsdOrPat  _ _) = False
   needsParens PsdWildPat      = False
+  needsParens PsdUnitPat      = False
 
 -- * Type Patterns
 -- ------------------------------------------------------------------------------
