@@ -559,7 +559,9 @@ elabHsPat exp_ty (HsConPat dc ps) binds = do
 elabHsPat _ HsWildPat             binds = do
   frsh <- freshFcTmVar
   return (binds, FcVarPat frsh)
-elabHsPat _ HsUnitPat             binds = return (binds, FcUnitPat)
+elabHsPat exp_ty HsUnitPat        binds = do
+  storeEqCs [exp_ty :~: TyUnit]
+  return (binds, FcUnitPat)
 elabHsPat exp_ty (HsOrPat p1 p2)  binds = do
   (binds1, fcp1) <- elabHsPat exp_ty p1 binds
   (binds2, fcp2) <- elabHsPat exp_ty p2 binds
