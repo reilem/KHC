@@ -73,6 +73,7 @@ instance SubstVar RnTmVar RnTmVar RnPat where
     HsConPat dc ps -> HsConPat dc (map (substVar a ax) ps)
     HsOrPat  p1 p2 -> HsOrPat (substVar a ax p1) (substVar a ax p2)
     HsWildPat      -> HsWildPat
+    HsUnitPat      -> HsUnitPat
 
 -- * Target Language SubstVar Instances (Type Substitution)
 -- ------------------------------------------------------------------------------
@@ -310,6 +311,7 @@ replacePatBinds ((b,bx):bs) = replacePatBinds bs . go b bx
       HsConPat dc ps -> HsConPat dc (map (go a ax) ps)
       HsOrPat  p1 p2 -> HsOrPat (go a ax p1) (go a ax p2)
       HsWildPat      -> HsWildPat
+      HsUnitPat      -> HsUnitPat
 
 -- * System F Type Substitution
 -- ------------------------------------------------------------------------------
