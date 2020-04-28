@@ -111,17 +111,19 @@ matchTheAlts  dc  args ((FcAltFc (FcConPat dc' xs) rhs):rest)
 
 -- | Perform a multi-step evaluation using lazy operational semantics. This
 -- | function performs single-step evaluations until the result of this single
--- | step evaluation indicates that the given term is fully evaluated. If the
--- | term is an error, then the error's string is returned, otherwise the
--- | full term is returned.
+-- | step evaluation indicates that the given term is fully evaluated.
 fullStep :: FcTerm 'Fc -> EvM (Either String (FcTerm 'Fc))
 fullStep t = smallStep t >>= \case
+  -- If result is another term, continue full evaluation
   Just t'  -> fullStep t'
+  -- If no result, evaluation is finished: return final term, or an error
   Nothing  -> case t of
     FcTmERROR err _ -> return $ Left err
     res             -> return $ Right res
 
 -- | Convert a program to a simple expression (local let-bindings).
+-- | Essentially: all value bindings are converted into let-bindings, data
+-- | declarations are ignored.
 collapseProgram :: FcProgram 'Fc -> FcTerm 'Fc
 collapseProgram = \case
   FcPgmTerm e                        ->  e
@@ -142,10 +144,10 @@ groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
 groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) FcTyUnit
 groundTerm t                 = t
 
--- | Fully evaluates given term using lazy semantics. However if the final
--- | result is a term application, then the right term in the application may
--- | not be fully evaluated. In order to produce a clear, readable output we
--- | choose to evaluate all branches recursively before returning the result.
+-- | Fully evaluates given term. If final result is a term application, then
+-- | the right hand side term in the application may not be fully evaluated.
+-- | In order to produce a clear, readable output we choose to evaluate all
+-- | branches recursively before returning the result.
 fullEval :: FcTerm 'Fc -> EvM (Either String (FcTerm 'Fc))
 fullEval t = fullStep t >>= \case
   Right (FcTmApp t1 t2) -> fullEval t2 >>= \case
@@ -153,14 +155,13 @@ fullEval t = fullStep t >>= \case
     Left err  -> return $ Left err
   result -> return $ result
 
--- | Evaluates the given program:
--- | 1. Collapse the program to produce a single term that can be evaluated
--- | 2. Ground all top level type abstractions using Unit type,
--- |    otherwise they will prevent meaningful evaluation.
--- | 3. Fully evaluate the grounded term. Evaluation is run using unique supply
--- |    to allow for variable freshening during substitution.
 fcEvaluate :: UniqueSupply -> FcProgram 'Fc -> (Either String (FcTerm 'Fc), UniqueSupply)
 fcEvaluate us pgm =
+  -- 1. Collapse the program to produce a single term that can be evaluated
   let pgmTm = collapseProgram pgm in
+  -- 2. Ground all top level type abstractions using Unit type,
+  --    otherwise they will prevent meaningful evaluation.
   let gtm   = groundTerm pgmTm in
+  -- 3. Fully evaluate the grounded term. Evaluation is run using unique supply
+  --    to allow for variable freshening during substitution.
   runUniqueSupplyM (fullEval gtm) us
