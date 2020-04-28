@@ -139,7 +139,7 @@ collapseProgram = \case
 -- |
 -- | But (let f = <expr1> in /\a. <expr2>) is left unchanged. We do this
 -- | because we know the elaboration & desugaring phases only produce top level
--- | type abstractions. So this method will be sufficient in all cases.
+-- | type abstractions. So this method will be sufficient in our case.
 groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
 groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) FcTyUnit
 groundTerm t                 = t
