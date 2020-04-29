@@ -38,7 +38,7 @@ Since the implementation is also a cabal package you can also build an executabl
 
     cabal build
     ./dist/build/khc/khc Tests/Test1.hs
-    
+
 ## TODOs ##
 
 This is still an early version, so several improvements are planned for the near future:
@@ -59,3 +59,18 @@ The above are illustrated in the existing tests in directory `Tests`. We current
 
 If you have any inquiries concerning the implementation please do not hesitate to [contact us](mailto:gertjan.bottu@kuleuven.be).
 
+## Running Tests ##
+
+To run all the tests, execute:
+```
+stack runghc Tests
+```
+
+### Config ###
+
+To configure or add a test to the tests: add a new line to the
+`TestConfig.txt` file containing: the path to the test file, and the expected
+result; separated by a colon `:`.
+```
+<path to the test file>:<expected evaluation result>
+```
