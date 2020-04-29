@@ -54,7 +54,7 @@ module Utils.Unique
 , UniqueSupplyT(..), runUniqueSupplyT
 
   -- * Built in uniques
-, arrowTyConUnique, arrowTyVar1Unique, arrowTyVar2Unique
+, arrowTyConUnique, unitUnique, arrowTyVar1Unique, arrowTyVar2Unique
 ) where
 
 import Utils.PrettyPrint
@@ -75,11 +75,14 @@ import Control.Monad.Writer
 arrowTyConUnique :: Unique
 arrowTyConUnique = MkU 'b' 0
 
+unitUnique :: Unique
+unitUnique = MkU 'b' 1
+
 arrowTyVar1Unique :: Unique
-arrowTyVar1Unique = MkU 'b' 1
+arrowTyVar1Unique = MkU 'b' 2
 
 arrowTyVar2Unique :: Unique
-arrowTyVar2Unique = MkU 'b' 2
+arrowTyVar2Unique = MkU 'b' 3
 
 -- ----------------------------------------------------------------------------
 --                                 Unique

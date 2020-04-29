@@ -114,7 +114,6 @@ data Term a = TmVar (HsTmVar a)                   -- ^ Term variable
             | TmApp (Term a) (Term a)             -- ^ Term application
             | TmLet (HsTmVar a) (Term a) (Term a) -- ^ Letrec var = term in term
             | TmCase (Term a) [HsAlt a]           -- ^ case e of { ... }
-            | TmUnit                              -- ^ Unit term
 
 -- | Parsed/renamed term
 type PsTerm = Term Sym
@@ -140,13 +139,11 @@ data PsdPat = PsdVarPat (HsTmVar Sym)
             | PsdAppPat PsdPat PsdPat
             | PsdOrPat  PsdPat PsdPat
             | PsdWildPat
-            | PsdUnitPat
 
 data HsPat a = HsVarPat (HsTmVar a)
              | HsConPat (HsDataCon a) [HsPat a]
              | HsOrPat (HsPat a) (HsPat a)
              | HsWildPat
-             | HsUnitPat
 
 type PsPat = HsPat Sym
 type RnPat = HsPat Name
@@ -173,12 +170,10 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (HsPat a) where
   ppr (HsVarPat x    )        = ppr x
   ppr (HsOrPat  p1 p2)        = pprPar p1 <+> text "||" <+> pprPar p2
   ppr HsWildPat               = text "_"
-  ppr HsUnitPat               = text "()"
   needsParens (HsConPat _ xs) = length xs > 0
   needsParens (HsVarPat _   ) = False
   needsParens (HsOrPat  _  _) = False
   needsParens HsWildPat       = False
-  needsParens HsUnitPat       = False
 
 instance PrettyPrint PsdPat where
   ppr (PsdAppPat p1 p2)       = ppr p1 <+> ppr p2
@@ -186,13 +181,11 @@ instance PrettyPrint PsdPat where
   ppr (PsdConPat dc   )       = ppr dc
   ppr (PsdOrPat  p1 p2)       = pprPar p1 <+> text "||" <+> pprPar p2
   ppr PsdWildPat              = text "_"
-  ppr PsdUnitPat              = text "()"
   needsParens (PsdAppPat _ _) = True
   needsParens (PsdVarPat _  ) = False
   needsParens (PsdConPat _  ) = False
   needsParens (PsdOrPat  _ _) = False
   needsParens PsdWildPat      = False
-  needsParens PsdUnitPat      = False
 
 -- * Type Patterns
 -- ------------------------------------------------------------------------------
@@ -224,7 +217,6 @@ hsTyPatToMonoTy (HsTyVarPat (a :| _kind)) = TyVar a
 data MonoTy a = TyCon (HsTyCon a)           -- ^ Type Constructor
               | TyApp (MonoTy a) (MonoTy a) -- ^ Type Application
               | TyVar (HsTyVar a)           -- ^ Type variable
-              | TyUnit                      -- ^ Unit Type
 
 -- | Parsed/renamed monotype
 type PsMonoTy = MonoTy Sym
@@ -284,6 +276,40 @@ isHsArrowTy :: Symable a => MonoTy a -> Maybe (MonoTy a, MonoTy a)
 isHsArrowTy (TyApp (TyApp (TyCon tc) ty1) ty2)
   | isArrowTyCon tc   = Just (ty1, ty2)
 isHsArrowTy _other_ty = Nothing
+
+-- * Unit Data and Type Con
+-- ------------------------------------------------------------------------------
+
+unitSym :: Sym
+unitSym = mkSym "()"
+
+unitName :: Name
+unitName = mkName unitSym unitUnique
+
+psUnitTyCon :: PsTyCon
+psUnitTyCon = HsTC unitSym
+
+rnUnitTyCon :: RnTyCon
+rnUnitTyCon = HsTC unitName
+
+unitTyConInfo :: HsTyConInfo
+unitTyConInfo = HsTCInfo rnUnitTyCon
+                         []
+                         fcUnitTyCon
+                         []
+
+psUnitDataCon :: PsDataCon
+psUnitDataCon = HsDC unitSym
+
+rnUnitDataCon :: RnDataCon
+rnUnitDataCon = HsDC unitName
+
+unitDataConInfo :: HsDataConInfo
+unitDataConInfo = HsDCInfo rnUnitDataCon
+                           []
+                           rnUnitTyCon
+                           []
+                           fcUnitDataCon
 
 -- * Smart constructors
 -- ------------------------------------------------------------------------------
@@ -491,7 +517,6 @@ instance Eq a => ContainsFreeTyVars (MonoTy a) (HsTyVar a) where
       ftyvsOfMonoTy (TyCon {})      = []
       ftyvsOfMonoTy (TyApp ty1 ty2) = ftyvsOfMonoTy ty1 ++ ftyvsOfMonoTy ty2
       ftyvsOfMonoTy (TyVar v)       = [v]
-      ftyvsOfMonoTy TyUnit          = []
 
 instance Eq a => ContainsFreeTyVars (Ctr a) (HsTyVar a) where
   ftyvsOf (Ctr [] [] ct)        = ftyvsOf ct
@@ -602,7 +627,6 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (Term a) where
   ppr (TmLet v tm1 tm2)  = colorDoc yellow (text "let") <+> ppr v <+> equals <+> ppr tm1
                         $$ colorDoc yellow (text "in")  <+> ppr tm2
   ppr (TmCase scr alts)  = hang (text "case" <+> ppr scr <+> text "of") 2 (vcat $ map ppr alts)
-  ppr TmUnit             = text "()"
 
   needsParens (TmAbs  {}) = True
   needsParens (TmApp  {}) = True
@@ -610,7 +634,6 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (Term a) where
   needsParens (TmCase {}) = True
   needsParens (TmVar  {}) = False
   needsParens (TmCon  {}) = False
-  needsParens TmUnit      = False
 
 -- | Pretty print type patterns
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsTyPat a) where
@@ -631,12 +654,10 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (MonoTy a) where
     | TyApp {} <- ty1 = ppr ty1    <+> pprPar ty2
     | otherwise       = pprPar ty1 <+> pprPar ty2
   ppr (TyVar var)     = ppr var
-  ppr TyUnit          = text "()"
 
   needsParens (TyCon {}) = False
   needsParens (TyApp {}) = True
   needsParens (TyVar {}) = False
-  needsParens TyUnit     = False
 
 -- | Pretty print qualified types
 instance (Symable a, PrettyPrint a) => PrettyPrint (QualTy a) where

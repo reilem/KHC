@@ -20,7 +20,6 @@ instance SizeOf (MonoTy a) where
   sizeOf (TyCon {})      = 1
   sizeOf (TyApp ty1 ty2) = sizeOf ty1 + sizeOf ty2
   sizeOf (TyVar {})      = 1
-  sizeOf TyUnit          = 1
 
 instance SizeOf (ClsCt a) where
   sizeOf (ClsCt _ ty) = sizeOf ty
@@ -36,7 +35,6 @@ instance Eq a => OccOf (HsTyVar a) (MonoTy a) where
   occOf _ (TyCon {})      = 0
   occOf a (TyApp ty1 ty2) = occOf a ty1 + occOf a ty2
   occOf a (TyVar b)       = if a == b then 1 else 0
-  occOf _ TyUnit          = 0
 
 instance Eq a => OccOf (HsTyVar a) (ClsCt a) where
   occOf a (ClsCt _cls ty) = occOf a ty
