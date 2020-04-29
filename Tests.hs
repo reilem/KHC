@@ -21,12 +21,14 @@ runTests config = do
 
 performTests :: [String] -> IO ()
 performTests []           = return ()
-performTests (test:tests) = do
-  runWithExpected $ parseTest test
-  performTests tests
+performTests (test:tests)
+  | Just (path, expected) <- parseTest test = do
+    runWithExpected path expected
+    performTests tests
+  | otherwise                               = performTests tests
 
-runWithExpected :: (FilePath, String) -> IO ()
-runWithExpected (path, expected) = do
+runWithExpected :: FilePath -> String -> IO ()
+runWithExpected path expected = do
   result <- runSingleTest path
   if startsWith expected result then
     putSuccess path
@@ -60,28 +62,30 @@ testError phase e
   = return (render msg)
 
 putFailure :: String -> String -> FilePath -> IO ()
-putFailure expect actual = putResult ((colorDoc red $ text "FAIL")
-                            <+> lparen
-                            <+> (text "Expected") <+> colon <+> (text expect)
-                            <+> comma
-                            <+> (text "Actual") <+> colon <+> (text actual)
-                            <+> rparen)
+putFailure expect actual path = putStrLn $ renderWithColor $
+    (colorDoc yellow $ text "TEST")
+    <+> (colorDoc red $ text "FAIL")
+    <+> colon
+    <+> (text path)
+    <+> rarrow
+    <+> parens (
+      (colorDoc yellow $ text "Expected") <+> colon <+> (text expect)
+      <+> comma
+      <+> (colorDoc yellow $ text "Actual") <+> colon <+> (text actual))
 
 putSuccess :: FilePath -> IO ()
-putSuccess = putResult (colorDoc green $ text "SUCCESS")
-
-putResult :: Doc -> FilePath -> IO ()
-putResult result path = putStrLn $ renderWithColor
-  ((colorDoc yellow $ text "TEST")
+putSuccess path = putStrLn $ renderWithColor $
+  (colorDoc yellow $ text "TEST")
+  <+> (colorDoc green $ text "SUCCESS")
   <+> colon
   <+> (text path)
-  <+> rarrow
-  <+> result)
 
-parseTest :: String -> (String, String)
-parseTest []           = error "No colon found in test"
-parseTest (':':expect) = ([], expect)
-parseTest (c:cs)       = let (p, e) = parseTest cs in (c:p, e)
+parseTest :: String -> Maybe (String, String)
+parseTest []                    = Nothing
+parseTest (':':expect)          = Just ([], expect)
+parseTest (c:cs)
+  | Just (p, e) <- parseTest cs = Just (c:p, e)
+  | otherwise                   = Nothing
 
 startsWith :: Eq a => [a] -> [a] -> Bool
 startsWith (a:as) (b:bs)
