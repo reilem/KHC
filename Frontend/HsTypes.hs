@@ -280,17 +280,17 @@ isHsArrowTy _other_ty = Nothing
 -- * Unit Data and Type Con
 -- ------------------------------------------------------------------------------
 
-unitSym :: Sym
-unitSym = mkSym "()"
+unitTyConSym :: Sym
+unitTyConSym = mkSym "()"
 
-unitName :: Name
-unitName = mkName unitSym unitUnique
+unitTyConName :: Name
+unitTyConName = mkName unitTyConSym unitTyConUnique
 
 psUnitTyCon :: PsTyCon
-psUnitTyCon = HsTC unitSym
+psUnitTyCon = HsTC unitTyConSym
 
 rnUnitTyCon :: RnTyCon
-rnUnitTyCon = HsTC unitName
+rnUnitTyCon = HsTC unitTyConName
 
 unitTyConInfo :: HsTyConInfo
 unitTyConInfo = HsTCInfo rnUnitTyCon
@@ -298,11 +298,17 @@ unitTyConInfo = HsTCInfo rnUnitTyCon
                          fcUnitTyCon
                          [rnUnitDataCon]
 
+unitDataConSym :: Sym
+unitDataConSym = mkSym "()"
+
+unitDataConName :: Name
+unitDataConName = mkName unitDataConSym unitDataConUnique
+
 psUnitDataCon :: PsDataCon
-psUnitDataCon = HsDC unitSym
+psUnitDataCon = HsDC unitDataConSym
 
 rnUnitDataCon :: RnDataCon
-rnUnitDataCon = HsDC unitName
+rnUnitDataCon = HsDC unitDataConName
 
 unitDataConInfo :: HsDataConInfo
 unitDataConInfo = HsDCInfo rnUnitDataCon

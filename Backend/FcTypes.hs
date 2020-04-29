@@ -41,14 +41,14 @@ isFcArrowTy _other_type = Nothing
 -- * Unit Type Constructor
 -- ----------------------------------------------------------------------------
 
-mkFcUnitTy :: FcType
-mkFcUnitTy = FcTyCon fcUnitTyCon
+fcUnitTy :: FcType
+fcUnitTy = FcTyCon fcUnitTyCon
 
 fcUnitTyCon :: FcTyCon
-fcUnitTyCon = FcTC (mkName (mkSym "()") unitUnique)
+fcUnitTyCon = FcTC (mkName (mkSym "()") unitTyConUnique)
 
 fcUnitDataCon :: FcDataCon
-fcUnitDataCon = FcDC (mkName (mkSym "()") unitUnique)
+fcUnitDataCon = FcDC (mkName (mkSym "()") unitDataConUnique)
 
 -- * Types
 -- ----------------------------------------------------------------------------

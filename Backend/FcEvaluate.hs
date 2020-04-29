@@ -136,7 +136,7 @@ collapseProgram = \case
 -- TODO: In the future, this function should be type-directed: the type should
 -- determine whether we should create an application to unit or not.
 groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
-groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) mkFcUnitTy
+groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) fcUnitTy
 groundTerm t                 = t
 
 -- | Fully evaluates a given term.
