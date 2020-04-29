@@ -20,3 +20,6 @@ Tests/UnitTest.hs:Zero
 Tests/OrPatternAutoSimplifyTest.hs:Cons [List Number] (Cons [Number] Zero (Nil [Number])) (Nil [List Number])
 Tests/WildcardPatternTest.hs:Two
 Tests/OrPatternBigTest.hs:One
+Tests/Guards/BigWithOrTest.hs:Succ (Succ (Succ Zero))
+Tests/Guards/ComplexLargeTest.hs:Node [Number] (Node [Number] (Leaf [Number] Zero) (Leaf [Number] Zero)) (Leaf [Number] (Succ Zero))
+Tests/Guards/ComplexLargeWithOrTest.hs:Node [Number] (EmptyLeaf [Number]) (Leaf [Number] (Succ (Succ Zero)))
