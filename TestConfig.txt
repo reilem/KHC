@@ -35,3 +35,10 @@ Tests/Guards/FailNestedDownGuardsTest.hs:[parser failure]
 Tests/Guards/FailNestedUpGuardsTest.hs:[parser failure]
 Tests/Guards/FailUnboundInGuardTest.hs:[renamer failure]
 Tests/Guards/FailUnboundInRhsTest.hs:[renamer failure]
+Tests/Guards/MultipleGuardsTest.hs:Succ (Succ Zero)
+Tests/Guards/NestedCaseOfWithGuardsTest.hs:Succ (Succ (Succ Zero))
+Tests/Guards/SimpleFlippedTest.hs:Zero
+Tests/Guards/SimpleTest.hs:Succ Zero
+Tests/Guards/SimpleWithOrTest.hs:Succ Zero
+Tests/Guards/TypeVariablesInGuard1Test.hs:Zero
+Tests/Guards/TypeVariablesInGuard2Test.hs:Succ (Succ Zero)
