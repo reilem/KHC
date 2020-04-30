@@ -43,12 +43,25 @@ hsParse path = readFile path >>= \contents ->
 sc :: PsM ()
 sc = L.space space1 (L.skipLineComment "--") (L.skipBlockComment "{--" "--}")
 
+-- | Space consumer with no new lines
+scnn :: PsM ()
+scnn = L.space (void $ oneOf " \t") (L.skipLineComment "--") (L.skipBlockComment "{--" "--}")
+
 -- | Turn a parser indent aware
 indent :: PsM a -> PsM a
 indent p =
   ask >>= \(SC sc') ->
     L.lineFold sc' $ \sc'' ->
       local (const (SC (try sc'' <|> return ()))) (p <* sc')
+
+indentStrict :: PsM a -> PsM b -> (a -> [b] -> PsM c) -> PsM c
+indentStrict pHead pItem combine =
+  ask >>= \(SC sc') ->
+    local (const (SC scnn)) (L.nonIndented sc' (L.indentBlock sc' p))
+  where
+    p = do
+      hd <- pHead
+      return (L.IndentSome Nothing (combine hd) pItem)
 
 -- | Turn a parser into a lexeme parser
 lexeme :: PsM a -> PsM a
@@ -257,11 +270,10 @@ pTerm  =  pAppTerm
           <*> (pTmVar <&> (symbol "=" *> pTerm))
           <*  symbol "in"
           <*> pTerm
-      <|> TmCase
-          <$  symbol "case"
-          <*> pTerm
-          <*  symbol "of"
-          <*> some (indent pAlt)
+      <|> indentStrict
+            (symbol "case" *> pTerm <*  symbol "of")
+            pAlt
+            (\tm alts -> return $ TmCase tm alts)
 
 -- Parse a primary parsed pattern (highest priority)
 pPrimPat :: PsM PsdPat
