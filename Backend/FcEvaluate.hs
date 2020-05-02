@@ -71,13 +71,13 @@ smallStep (FcTmCaseFc scr alts) = smallStep scr >>= \case
   Just scr' -> pure $ Just $ FcTmCaseFc scr' alts
   Nothing   -> pure $ Nothing
 
--- | Check whether a term is a user defined data constructor application.
+-- | Check whether a term is a user-defined data constructor application.
 isUserDefinedDataConApp :: FcTerm 'Fc -> Bool
 isUserDefinedDataConApp = isJust . userDefinedDataConAppMaybe
 {-# INLINE isUserDefinedDataConApp #-}
 
 -- | Check whether a term is a user defined data constructor application
--- | and return its parts.
+-- and return its parts.
 userDefinedDataConAppMaybe :: FcTerm 'Fc -> Maybe (FcDataCon, [FcTerm 'Fc])
 userDefinedDataConAppMaybe tm
   | Just (dc, fn) <- go tm = Just (dc, fn [])
@@ -96,8 +96,8 @@ matchTheUnit ((FcAltFc FcUnitPat     rhs):_) = pure $ Just rhs
 matchTheUnit ((FcAltFc (FcConPat {}) _  ):_) = error "<unit impossible: elab failed!>"
 
 -- | Matches the given data constructor to one of the given alternatives, and
--- | substitutes the variables in the alternative's right hand side with the
--- | data constructor's arguements.
+-- substitutes the variables in the alternative's right hand side with the
+-- data constructor's arguments.
 matchTheAlts :: FcDataCon -> [FcTerm 'Fc] -> [FcAlt 'Fc] -> EvM (Maybe (FcTerm 'Fc))
 matchTheAlts _dc _args []                           = error "<impossible: pm compiler failed!>"
 matchTheAlts _dc _args ((FcAltFc FcUnitPat _rhs):_) = error "<impossible: elab failed!>"
@@ -109,9 +109,9 @@ matchTheAlts  dc  args ((FcAltFc (FcConPat dc' xs) rhs):rest)
           pure $ Just $ substFcTmInTm sub rhs
   | otherwise = matchTheAlts dc args rest
 
--- | Perform a multi-step evaluation using lazy operational semantics. This
--- | function performs single-step evaluations until the result of this single
--- | step evaluation indicates that the given term is fully evaluated.
+-- | Perform multi-step evaluation using call-by-name operational semantics. This
+-- function repeatedly performs single-step evaluation, until the result is either in
+-- Weak Head Normal Form (WHNF), or is an 'FcTmERROR'.
 fullStep :: FcTerm 'Fc -> EvM (Either String (FcTerm 'Fc))
 fullStep t = smallStep t >>= \case
   -- If result is another term, continue full evaluation
@@ -122,32 +122,34 @@ fullStep t = smallStep t >>= \case
     res             -> return $ Right res
 
 -- | Convert a program to a simple expression (local let-bindings).
--- | Essentially: all value bindings are converted into let-bindings, data
--- | declarations are ignored.
+-- Essentially: all value bindings are converted into let-bindings, data
+-- declarations are ignored.
 collapseProgram :: FcProgram 'Fc -> FcTerm 'Fc
 collapseProgram = \case
   FcPgmTerm e                        ->  e
   FcPgmDataDecl _ p                  -> collapseProgram p
   FcPgmValDecl (FcValBind x ty e1) p -> FcTmLet x ty e1 $ collapseProgram p
 
--- | Grounds the given term by wrapping all top level type abstractions in a
--- | type application on unit. This is only patched grounding, and so no
--- | internal type abstractions are grounded. For example:
--- |   /\ a. let f = <expr1> in <expr2>
--- | is grounded to:
--- |   (/\ a. let f = <expr1> in <expr2>) Unit
--- |
--- | But (let f = <expr1> in /\a. <expr2>) is left unchanged. We do this
--- | because we know the elaboration & desugaring phases only produce top level
--- | type abstractions. So this method will be sufficient in our case.
+-- | Grounds the given term by looking for top-level type abstractions, and
+-- then applying it on as many unit values as needed. This is only patched
+-- grounding, and so no internal type abstractions are grounded. For example:
+--
+-- > /\ a. let f = <expr1> in <expr2>
+--
+-- is grounded to:
+--
+-- > (/\ a. let f = <expr1> in <expr2>) Unit
+--
+-- But @(let f = <expr1> in /\a. <expr2>)@ is left unchanged. We do this
+-- because we know the elaboration and desugaring phases only produce top level
+-- type abstractions. So this method will be sufficient in all cases.
+-- TODO: In the future, this function should be type-directed: the type should
+-- determine whether we should create an application to unit or not.
 groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
 groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) FcTyUnit
 groundTerm t                 = t
 
--- | Fully evaluates given term. If final result is a term application, then
--- | the right hand side term in the application may not be fully evaluated.
--- | In order to produce a clear, readable output we choose to evaluate all
--- | branches recursively before returning the result.
+-- | Fully evaluates a given term.
 fullEval :: FcTerm 'Fc -> EvM (Either String (FcTerm 'Fc))
 fullEval t = fullStep t >>= \case
   Right (FcTmApp t1 t2) -> fullEval t2 >>= \case
