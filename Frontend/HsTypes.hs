@@ -370,6 +370,10 @@ destructQualTy (QQual ct ty) = (ct:cs, ty')
 constructPolyTy :: ([HsTyVarWithKind a], ClsCs a, MonoTy a) -> PolyTy a
 constructPolyTy (as, cs, ty) = foldr PPoly (PQual (constructQualTy (cs,ty))) as
 
+-- | Make a polytype from another poly type and type variables
+makePolyTy :: [HsTyVarWithKind a] -> PolyTy a -> PolyTy a
+makePolyTy as pty = foldr PPoly pty as
+
 -- | Inverse of destructQualTy: create a qualified type from parts
 constructQualTy :: (ClsCs a, MonoTy a) -> QualTy a
 constructQualTy (cs, ty) = foldr QQual (QMono ty) cs

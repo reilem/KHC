@@ -1044,10 +1044,13 @@ elabTermSimpl theory tm = do
                        substFcTmInTm ev_subst $
                          refined_fc_tm
 
-  return (gen_ty, addMissingTypeBindings full_fc_tm)
+  return $ addMissingTypeBindings gen_ty full_fc_tm
 
-addMissingTypeBindings :: FcTerm 'Tc -> FcTerm 'Tc
-addMissingTypeBindings tm = fcTmTyAbs (nub $ ftyvsOf tm) tm
+addMissingTypeBindings :: RnPolyTy -> FcTerm 'Tc -> (RnPolyTy, FcTerm 'Tc)
+addMissingTypeBindings ty tm = (makePolyTy hstyvs ty, fcTmTyAbs fctyvs tm)
+  where fctyvs = nub $ ftyvsOf tm
+        hstyvs = map (\a -> (fcTyVarToRnTyVar a) :| kindOf a) fctyvs
+
 
 
 -- * Program Elaboration
