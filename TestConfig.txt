@@ -12,6 +12,7 @@ Tests/OrPatternTest.hs:Cons [List Number] (Cons [Number] (Succ Zero) (Nil [Numbe
 Tests/PatternDuplicateOutcomeTest.hs:Two
 Tests/ParensPatternTest.hs:Succ (Succ (Succ Zero))
 Tests/PatternTest.hs:Succ (Succ (Succ (Succ (Succ Zero))))
+Tests/Test1.hs:False
 Tests/TypeVariablesTest.hs:(((Double [Null]) [Null]) [()]) [()] Null Null
 Tests/NestedPatternBigTest.hs:Two
 Tests/UnitPatternTest.hs:Succ Zero
