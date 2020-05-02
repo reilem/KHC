@@ -4,5 +4,5 @@ data Tuple (a :: *) (b :: *) (c :: *) (d :: *) = Double a b | Triple a b c | Qua
 -- is present in the left hand side branch but not in the right one and
 -- because the variable z is present in the right hand side branch and not
 -- the left one.
-\x. case x of
-  Double x y || Triple x z _ -> x
+case (Double () ()) of
+  Double x y || Triple x _ _ -> x
