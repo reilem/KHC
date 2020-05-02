@@ -14,6 +14,8 @@ module Utils.Var
 , FcTyVar, FcTmVar, DictVar
   -- * Convert a source renamed variable to a target variable of the same kind
 , rnTmVarToFcTmVar, rnTyVarToFcTyVar
+  -- * Convert a target variable to a source renamed variable of the same kind
+, fcTyVarToRnTyVar
   -- * Generating fresh variables
 , freshRnTmVar, freshRnTyVar, freshFcTmVar, freshFcTyVar, freshDictVar
 ) where
@@ -172,6 +174,10 @@ instance Uniquable FcTyVar where
 -- | Convert a source renamed variable to a System F variable
 rnTyVarToFcTyVar :: HsTyVar Name -> FcTyVar
 rnTyVarToFcTyVar (RnTyVar name kind) = FcTyVar name kind
+
+-- | Convert a System F variable to a source renamed variable
+fcTyVarToRnTyVar :: FcTyVar -> HsTyVar Name
+fcTyVarToRnTyVar (FcTyVar name kind) = (RnTyVar name kind)
 
 -- | Convert a source renamed term variable to a System F type variable
 rnTmVarToFcTmVar :: HsTmVar Name -> FcTmVar
