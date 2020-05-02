@@ -336,7 +336,8 @@ substFcTyInAlt = sub_rec -- XXX: subst (FcAlt p tm) = FcAlt p (substFcTyInTm sub
 
 type FcTmSubst a = Sub FcTmVar (FcTerm a)
 
--- | TODO: Document me.
+-- | Consutruct term subtitution out of list of tuples containing
+-- term variables and terms
 buildFcTmSubst :: [(FcTmVar, FcTerm a)] -> FcTmSubst a
 buildFcTmSubst = foldl (\s (x,y) -> SCons s x y) SNil
 
