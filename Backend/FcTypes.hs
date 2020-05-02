@@ -38,13 +38,24 @@ isFcArrowTy (FcTyApp (FcTyApp (FcTyCon tc) ty1) ty2)
   | tc == fcArrowTyCon  = Just (ty1, ty2)
 isFcArrowTy _other_type = Nothing
 
+-- * Unit Type Constructor
+-- ----------------------------------------------------------------------------
+
+fcUnitTy :: FcType
+fcUnitTy = FcTyCon fcUnitTyCon
+
+fcUnitTyCon :: FcTyCon
+fcUnitTyCon = FcTC (mkName (mkSym "()") unitTyConUnique)
+
+fcUnitDataCon :: FcDataCon
+fcUnitDataCon = FcDC (mkName (mkSym "()") unitDataConUnique)
+
 -- * Types
 -- ----------------------------------------------------------------------------
 data FcType = FcTyVar FcTyVar        -- ^ Type variable
             | FcTyAbs FcTyVar FcType -- ^ Type abstraction
             | FcTyApp FcType  FcType -- ^ Type application
             | FcTyCon FcTyCon        -- ^ Type constructor
-            | FcTyUnit               -- ^ Type unit
 
 -- | Syntactic equality on System F types
 eqFcTypes :: FcType -> FcType -> Bool
@@ -52,13 +63,11 @@ eqFcTypes (FcTyVar v1)    (FcTyVar v2)    = v1 == v2
 eqFcTypes (FcTyAbs v1 t1) (FcTyAbs v2 t2) = (v1 == v2)      && eqFcTypes t1 t2
 eqFcTypes (FcTyApp t1 t2) (FcTyApp t3 t4) = eqFcTypes t1 t3 && eqFcTypes t2 t4
 eqFcTypes (FcTyCon tc1)   (FcTyCon tc2)   = tc1 == tc2
-eqFcTypes FcTyUnit         FcTyUnit       = True
 
 eqFcTypes (FcTyVar {}) _ = False
 eqFcTypes (FcTyAbs {}) _ = False
 eqFcTypes (FcTyApp {}) _ = False
 eqFcTypes (FcTyCon {}) _ = False
-eqFcTypes FcTyUnit     _ = False
 
 -- | Type Constructors
 newtype FcTyCon = FcTC { unFcTC :: Name }
@@ -181,7 +190,6 @@ data FcTerm (a :: Phase) where
   FcTmCaseFc    :: FcTerm 'Fc -> [FcAlt 'Fc] -> FcTerm 'Fc               -- ^ Case
   FcTmCaseTc    :: FcType -> FcType -> FcTerm 'Tc -> [FcAlt 'Tc] -> FcTerm 'Tc               -- ^ Nested Case
   FcTmERROR     :: String -> FcType -> FcTerm a                          -- ^ Hard-wired error call
-  FcTmUnit      :: FcTerm a                                              -- ^ Unit term
 -- GEORGE: You should never need to make terms and patterns instances of Eq. If
 -- you do it means that something is probably wrong (the only setting where you
 -- need stuff like this is for optimizations).
@@ -198,7 +206,6 @@ data FcPat (a :: Phase) where
   FcConPatNs  :: FcDataCon -> [FcPat 'Tc] -> FcPat 'Tc
   FcVarPat    :: FcTmVar   -> FcPat 'Tc
   FcOrPat     :: FcPat 'Tc -> FcPat 'Tc   -> FcPat 'Tc
-  FcUnitPat   :: FcPat a
 
 -- | Case alternative(s)
 data FcAlt (a :: Phase) where
@@ -262,7 +269,6 @@ instance ContainsFreeTyVars FcType FcTyVar where
   ftyvsOf (FcTyAbs a ty)    = ftyvsOf ty \\ [a]
   ftyvsOf (FcTyApp ty1 ty2) = ftyvsOf ty1 ++ ftyvsOf ty2
   ftyvsOf (FcTyCon _tc)     = []
-  ftyvsOf FcTyUnit          = []
 
 instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmAbs _ ty tm)      = ftyvsOf ty ++ ftyvsOf tm
@@ -275,7 +281,6 @@ instance ContainsFreeTyVars (FcTerm a) FcTyVar where
   ftyvsOf (FcTmCaseFc tm cs)     = ftyvsOf tm ++ ftyvsOf cs
   ftyvsOf (FcTmCaseTc _ _ tm cs) = ftyvsOf tm ++ ftyvsOf cs
   ftyvsOf (FcTmERROR _err ty)    = ftyvsOf ty
-  ftyvsOf FcTmUnit               = []
 
 instance ContainsFreeTyVars (FcAlt a) FcTyVar where
   ftyvsOf (FcAltFc pat tm)  = ftyvsOf pat ++ ftyvsOf tm
@@ -292,7 +297,6 @@ instance ContainsFreeTyVars (FcPat a) FcTyVar where
   ftyvsOf (FcConPatNs _dc ps)  = concatMap ftyvsOf ps
   ftyvsOf (FcVarPat   _x)      = []
   ftyvsOf (FcOrPat    p1 p2)   = ftyvsOf p1 ++ ftyvsOf p2
-  ftyvsOf FcUnitPat            = []
 
 -- * Collecting Free Term Variables Out Of Objects
 -- ------------------------------------------------------------------------------
@@ -308,7 +312,6 @@ instance ContainsFreeTmVars (FcTerm a) FcTmVar where
   ftmvsOf (FcTmCaseFc tm cs)     = ftmvsOf tm `union` ftmvsOf cs
   ftmvsOf (FcTmCaseTc _ _ tm cs) = ftmvsOf tm `union` ftmvsOf cs
   ftmvsOf (FcTmERROR _err _ty)   = []
-  ftmvsOf FcTmUnit               = []
 
 instance ContainsFreeTmVars (FcAlt a) FcTmVar where
   ftmvsOf (FcAltFc pat tm)  = nub (ftmvsOf tm) \\ ftmvsOf pat
@@ -329,7 +332,6 @@ instance ContainsFreeTmVars (FcPat a) FcTmVar where
   ftmvsOf (FcConPatNs _dc ps) = concatMap ftmvsOf ps
   ftmvsOf (FcVarPat   x)      = [x]
   ftmvsOf (FcOrPat    p1 p2)  = ftmvsOf p1 `intersect` ftmvsOf p2
-  ftmvsOf FcUnitPat           = []
 
 -- * Pretty printing
 -- ----------------------------------------------------------------------------
@@ -359,13 +361,11 @@ instance PrettyPrint FcType where
     | FcTyApp {} <- ty1 = ppr ty1    <+> pprPar ty2
     | otherwise         = pprPar ty1 <+> pprPar ty2
   ppr (FcTyCon tc)      = ppr tc
-  ppr FcTyUnit          = text "()"
 
   needsParens (FcTyApp {}) = True
   needsParens (FcTyAbs {}) = True
   needsParens (FcTyVar {}) = False
   needsParens (FcTyCon {}) = False
-  needsParens FcTyUnit     = False
 
 -- | Pretty print type constructors
 instance PrettyPrint FcTyCon where
@@ -397,7 +397,6 @@ instance PrettyPrint (FcTerm a) where
   ppr (FcTmCaseTc _ _ tm cs) = hang (colorDoc yellow (text "case") <+> ppr tm <+> colorDoc yellow (text "of"))
                                   2 (vcat $ map ppr cs)
   ppr (FcTmERROR s ty)       = text "ERROR" <+> doubleQuotes (text s) <+> dcolon <+> ppr ty
-  ppr FcTmUnit               = text "()"
 
   needsParens (FcTmApp     {}) = True
   needsParens (FcTmTyApp   {}) = True
@@ -409,7 +408,6 @@ instance PrettyPrint (FcTerm a) where
   needsParens (FcTmTyAbs   {}) = True
   needsParens (FcTmDataCon {}) = False
   needsParens (FcTmERROR   {}) = True
-  needsParens FcTmUnit         = False
 
 -- | Pretty print patterns
 instance PrettyPrint (FcPat a) where
@@ -417,12 +415,10 @@ instance PrettyPrint (FcPat a) where
   ppr (FcConPatNs dc ps)          = ppr dc <+> hsep (map pprPar ps)
   ppr (FcVarPat   x)              = ppr x
   ppr (FcOrPat    p1 p2)          = pprPar p1 <+> text "||" <+> pprPar p2
-  ppr FcUnitPat                   = text "()"
   needsParens (FcVarPat   _)      = False
   needsParens (FcConPat   _dx xs) = length xs > 0
   needsParens (FcConPatNs _dx ps) = length ps > 0
   needsParens (FcOrPat    _   _ ) = False
-  needsParens FcUnitPat           = False
 
 -- | Pretty print case alternatives
 instance PrettyPrint (FcAlt a) where

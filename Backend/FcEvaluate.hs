@@ -32,7 +32,6 @@ smallStep :: FcTerm 'Fc -> EvM (Maybe (FcTerm 'Fc))
 -- Values (see why we need or-patterns :P)
 smallStep (FcTmAbs {})     = pure Nothing
 smallStep (FcTmTyAbs {})   = pure Nothing
-smallStep (FcTmUnit {})    = pure Nothing
 smallStep (FcTmDataCon {}) = pure Nothing
 
 -- Normal forms (but not values)
@@ -55,8 +54,6 @@ smallStep (FcTmLet x ty e1 e2) = do
   newe1 <- freshenLclBndrs $ FcTmLet x ty e1 e1
   pure <$> Just $ substVar x newe1 e2
 smallStep (FcTmCaseFc scr alts)
-  | FcTmUnit <- scr
-  = matchTheUnit alts
   | Just (dc, args) <- userDefinedDataConAppMaybe scr
   = matchTheAlts dc args alts
 
@@ -89,18 +86,11 @@ userDefinedDataConAppMaybe tm
     go (FcTmTyApp e1 _) = go e1
     go _ = Nothing
 
--- | TODO: remove
-matchTheUnit :: [FcAlt 'Fc] -> EvM (Maybe (FcTerm 'Fc))
-matchTheUnit []                              = error "<unit impossible: pm compiler failed!>"
-matchTheUnit ((FcAltFc FcUnitPat     rhs):_) = pure $ Just rhs
-matchTheUnit ((FcAltFc (FcConPat {}) _  ):_) = error "<unit impossible: elab failed!>"
-
 -- | Matches the given data constructor to one of the given alternatives, and
 -- substitutes the variables in the alternative's right hand side with the
 -- data constructor's arguments.
 matchTheAlts :: FcDataCon -> [FcTerm 'Fc] -> [FcAlt 'Fc] -> EvM (Maybe (FcTerm 'Fc))
 matchTheAlts _dc _args []                           = error "<impossible: pm compiler failed!>"
-matchTheAlts _dc _args ((FcAltFc FcUnitPat _rhs):_) = error "<impossible: elab failed!>"
 matchTheAlts  dc  args ((FcAltFc (FcConPat dc' xs) rhs):rest)
   | dc == dc' = if
       | length args /= length xs -> error "<impossible: elab failed!>"
@@ -146,7 +136,7 @@ collapseProgram = \case
 -- TODO: In the future, this function should be type-directed: the type should
 -- determine whether we should create an application to unit or not.
 groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
-groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) FcTyUnit
+groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) fcUnitTy
 groundTerm t                 = t
 
 -- | Fully evaluates a given term.

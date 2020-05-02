@@ -158,7 +158,6 @@ rnMonoTy :: PsMonoTy -> RnM RnMonoTy
 rnMonoTy (TyCon tc)      = TyCon <$> lookupTyCon tc
 rnMonoTy (TyApp ty1 ty2) = TyApp <$> rnMonoTy ty1 <*> rnMonoTy ty2
 rnMonoTy (TyVar psa)     = TyVar <$> lookupTyVarM psa
-rnMonoTy TyUnit          = return TyUnit
 
 -- | Rename a qualified type
 rnQualTy :: PsQualTy -> RnM RnQualTy
@@ -217,7 +216,6 @@ rnTerm (TmLet x tm1 tm2)  = do
   rntm2 <- extendCtxTmM x rnx (rnTerm tm2)
   return (TmLet rnx rntm1 rntm2)
 rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
-rnTerm TmUnit             = return TmUnit
 
 -- | Rename a pattern
 rnPat :: PsPat -> RnM (RnPat, RnTmVarBinds)
@@ -233,7 +231,6 @@ rnPat (HsVarPat x)     = do
   rnX <- rnTmVar x
   return (HsVarPat rnX, [(x, rnX)])
 rnPat HsWildPat        = return (HsWildPat, [])
-rnPat HsUnitPat        = return (HsUnitPat, [])
 rnPat (HsOrPat p1 p2)  = do
   (rnp1, binds1) <- rnPat p1
   (rnp2, binds2) <- rnPat p2
@@ -442,8 +439,8 @@ hsRename us pgm = runWriter
   where
     rn_init_ctx     = mempty
     rn_init_gbl_env = RnEnv { rn_env_cls_info = mempty
-                            , rn_env_dc_info  = mempty
-                            , rn_env_tc_info  = extendAssocList psArrowTyCon arrowTyConInfo mempty
+                            , rn_env_dc_info  = extendAssocList psUnitDataCon unitDataConInfo mempty
+                            , rn_env_tc_info  = extendAssocList psUnitTyCon unitTyConInfo (extendAssocList psArrowTyCon arrowTyConInfo mempty)
                             }
 
 -- | Throw an error
