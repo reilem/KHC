@@ -1,3 +1,3 @@
 data Number = Succ Number | Zero
 
-(\x. ERROR "This is a test") ()
+(\x. Succ (ERROR "This is a test")) ()
