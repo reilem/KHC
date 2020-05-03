@@ -216,6 +216,7 @@ rnTerm (TmLet x tm1 tm2)  = do
   rntm2 <- extendCtxTmM x rnx (rnTerm tm2)
   return (TmLet rnx rntm1 rntm2)
 rnTerm (TmCase scr alts)  = TmCase <$> rnTerm scr <*> mapM rnAlt alts
+rnTerm (TmERROR s)        = return $ TmERROR s
 
 -- | Rename a pattern
 rnPat :: PsPat -> RnM (RnPat, RnTmVarBinds)

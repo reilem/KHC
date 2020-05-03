@@ -57,7 +57,7 @@ lexeme x = ask >>= \(SC sc') -> L.lexeme sc' x
 -- | List of reserved names
 reservedNames :: [String]
 reservedNames =
-  ["let", "in", "case", "of", "data", "class", "instance", "where", "forall"]
+  ["let", "in", "case", "of", "data", "class", "instance", "where", "forall", "()", "ERROR"]
 
 -- | Parse an identifier given a parser for the first character
 identifier :: PsM Char -> PsM Sym
@@ -174,6 +174,10 @@ pDataCon =  psUnitDataCon <$ symbol "()"
         <|> HsDC <$> upperIdent
         <?> "a data constructor"
 
+-- | Parse a string literal
+pString :: PsM String
+pString =  char '\"' *> manyTill L.charLiteral (char '\"')
+
 -- * Parse types, type patterns, kinds and constraints
 -- ------------------------------------------------------------------------------
 
@@ -233,6 +237,7 @@ pTyVarWithKind = liftA2 (:|) pTyVar (symbol "::" *> pKind)
 pPrimTerm :: PsM PsTerm
 pPrimTerm  =  TmVar <$> pTmVar
           <|> TmCon <$> pDataCon
+          <|> TmERROR <$ symbol "ERROR" <*> pString
           <|> parens pTerm
 
 -- | Parse a term (medium priority)

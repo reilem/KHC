@@ -426,6 +426,7 @@ elabTerm (TmAbs x tm)      = elabTmAbs x tm
 elabTerm (TmVar x)         = elabTmVar x
 elabTerm (TmCon dc)        = liftGenM (elabTmCon dc)
 elabTerm (TmLet x tm1 tm2) = elabTmLet x tm1 tm2
+elabTerm (TmERROR s)       = elabTmERROR s
 elabTerm (TmCase scr alts) = elabTmCase scr alts
 
 -- | Elaborate a term application
@@ -494,6 +495,12 @@ polyTysToMonoTysM []       = return []
 polyTysToMonoTysM (ty:tys) = case polyTyToMonoTy ty of
   Just mono_ty -> fmap (mono_ty:) (polyTysToMonoTysM tys)
   Nothing      -> throwErrorM (text "polyTysToMonoTysM" <+> colon <+> text "non-monotype")
+
+elabTmERROR :: String -> GenM (RnMonoTy, FcTerm 'Tc)
+elabTmERROR s = do
+  a <- TyVar <$> freshRnTyVar KStar
+  ty <- liftGenM (elabMonoTy a)
+  return (a, FcTmERROR s ty)
 
 -- | Elaborate a case expression
 elabTmCase :: RnTerm -> [RnAlt] -> GenM (RnMonoTy, FcTerm 'Tc)
