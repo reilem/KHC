@@ -69,7 +69,7 @@ stack runghc RunTests
 ### Config ###
 
 To configure or add a test to the tests: add a new line to the
-`TestConfig.txt` file containing: the path to the test file, and the expected
+`ConfigTests.txt` file containing: the path to the test file, and the expected
 result; separated by a colon `:`.
 ```
 <path to the test file> : <expected evaluation result>
