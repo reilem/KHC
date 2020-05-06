@@ -11,8 +11,11 @@ import Backend.FcEvaluate     (fcEvaluate)
 import Utils.Unique  (newUniqueSupply)
 import Utils.PrettyPrint
 
+import Data.Char (isSpace)
+import Data.List (isPrefixOf, span)
+
 main :: IO ()
-main = runTests "TestConfig.txt"
+main = runTests "ConfigTests.txt"
 
 runTests :: FilePath -> IO ()
 runTests config = do
@@ -30,7 +33,7 @@ performTests (test:tests)
 runWithExpected :: FilePath -> String -> IO ()
 runWithExpected path expected = do
   result <- runSingleTest path
-  if startsWith expected result then
+  if isPrefixOf expected result then
     putSuccess path
   else
     putFailure expected result path
@@ -80,16 +83,16 @@ putSuccess path = putStrLn $ renderWithColor $
   <+> colon
   <+> (text path)
 
+-- | Parse a 'String' of the form "<path-of-text> : <expected-result>".
+-- Removes leading and trailing whitespace from all components.
 parseTest :: String -> Maybe (String, String)
-parseTest []                    = Nothing
-parseTest (':':expect)          = Just ([], expect)
-parseTest (c:cs)
-  | Just (p, e) <- parseTest cs = Just (c:p, e)
-  | otherwise                   = Nothing
+parseTest input
+  | (path,':':expected) <- span (/=':') input
+  = Just (trim path, trim expected)
+  | otherwise
+  = Nothing
 
-startsWith :: Eq a => [a] -> [a] -> Bool
-startsWith (a:as) (b:bs)
-  | a == b           = startsWith as bs
-  | otherwise        = False
-startsWith []     _  = True
-startsWith (_:_)  [] = False
+-- | Remove leading and trailing whitespace from a 'String'.
+-- NOTE: This implementation is a bit inefficient but simple.
+trim :: String -> String
+trim = reverse . dropWhile isSpace . reverse . dropWhile isSpace
