@@ -114,6 +114,7 @@ data Term a = TmVar (HsTmVar a)                   -- ^ Term variable
             | TmApp (Term a) (Term a)             -- ^ Term application
             | TmLet (HsTmVar a) (Term a) (Term a) -- ^ Letrec var = term in term
             | TmCase (Term a) [HsAlt a]           -- ^ case e of { ... }
+            | TmERROR String
 
 -- | Parsed/renamed term
 type PsTerm = Term Sym
@@ -637,13 +638,15 @@ instance (Symable a, PrettyPrint a) => PrettyPrint (Term a) where
   ppr (TmLet v tm1 tm2)  = colorDoc yellow (text "let") <+> ppr v <+> equals <+> ppr tm1
                         $$ colorDoc yellow (text "in")  <+> ppr tm2
   ppr (TmCase scr alts)  = hang (text "case" <+> ppr scr <+> text "of") 2 (vcat $ map ppr alts)
+  ppr (TmERROR s)        = text "ERROR" <+> doubleQuotes (text s)
 
-  needsParens (TmAbs  {}) = True
-  needsParens (TmApp  {}) = True
-  needsParens (TmLet  {}) = True
-  needsParens (TmCase {}) = True
-  needsParens (TmVar  {}) = False
-  needsParens (TmCon  {}) = False
+  needsParens (TmAbs   {}) = True
+  needsParens (TmApp   {}) = True
+  needsParens (TmLet   {}) = True
+  needsParens (TmCase  {}) = True
+  needsParens (TmVar   {}) = False
+  needsParens (TmCon   {}) = False
+  needsParens (TmERROR {}) = False
 
 -- | Pretty print type patterns
 instance (Symable a, PrettyPrint a) => PrettyPrint (HsTyPat a) where
