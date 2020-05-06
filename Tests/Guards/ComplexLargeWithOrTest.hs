@@ -6,7 +6,7 @@ data Tree (a :: *) = Leaf a | Node (Tree a) (Tree a) | EmptyLeaf
 data Tuple (a :: *) (b :: *) (c :: *) (d :: *) = Double a b | Triple a b c | Quad a b c d
 
 -- Test has guard patterns with a nested case-of as guard expression using multiple OR patterns
-\y. case y of -- y :: List (Tuple (Tree Number) (Tree Number) Bool Number)
+(\y. case y of -- y :: List (Tuple (Tree Number) (Tree Number) Bool Number)
     Nil       -> EmptyLeaf
     Cons x xs
       | (Double a b || Triple a b _) <- case x of -- a :: Tree Number, b :: Number
@@ -19,3 +19,4 @@ data Tuple (a :: *) (b :: *) (c :: *) (d :: *) = Double a b | Triple a b c | Qua
           | False <- bool -> Double tree1 num
           | True  <- bool -> Double tree2 num -> (Node a (Leaf b))
       | Zero <- Zero                          -> Leaf Zero
+) (Cons (Triple (Leaf (Succ (Succ Zero))) (Leaf Zero) False) Nil)

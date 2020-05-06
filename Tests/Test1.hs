@@ -20,4 +20,4 @@ instance Eq Bool where
           False -> True
 
 -- | Program expression
-\x. x
+equals True False
