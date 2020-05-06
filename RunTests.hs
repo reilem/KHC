@@ -12,7 +12,7 @@ import Utils.Unique  (newUniqueSupply)
 import Utils.PrettyPrint
 
 import Data.Char (isSpace)
-import Data.List (isPrefixOf, span)
+import Data.List (isPrefixOf, isInfixOf, span)
 
 main :: IO ()
 main = runTests "ConfigTests.txt"
@@ -33,7 +33,7 @@ performTests (test:tests)
 runWithExpected :: FilePath -> String -> IO ()
 runWithExpected path expected = do
   result <- runSingleTest path
-  if isPrefixOf expected result then
+  if testPass expected result then
     putSuccess path
   else
     putFailure expected result path
@@ -96,3 +96,10 @@ parseTest input
 -- NOTE: This implementation is a bit inefficient but simple.
 trim :: String -> String
 trim = reverse . dropWhile isSpace . reverse . dropWhile isSpace
+
+-- | If the expected outcome is failure, only check for prefix match,
+-- otherwise check for exact match.
+testPass :: String -> String -> Bool
+testPass expected actual
+  | isInfixOf "failure" expected = isPrefixOf expected actual
+  | otherwise                    = expected == actual
