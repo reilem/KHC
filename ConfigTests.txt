@@ -30,6 +30,7 @@ Tests/Guards/ComplexMediumTest.hs : Cons [Number] (Succ Zero) (Cons [Number] Zer
 Tests/Guards/ComplexSmallTest.hs : Cons [Number] Zero (Cons [Number] Zero (Nil [Number]))
 Tests/Guards/FailBarWithoutGuardTest.hs : [parser failure]
 Tests/Guards/FailGuardsWithoutBarTest.hs : [parser failure]
+Tests/Guards/FailIncompleteWithOrTest.hs : [Evaluation error failure] Match Failed
 Tests/Guards/FailInconsistentGuardsTest.hs : [typechecker failure]
 Tests/Guards/FailInconsistentRhsTest.hs : [typechecker failure]
 Tests/Guards/FailMixEquationAndGuarded.hs : [parser failure]
@@ -38,6 +39,7 @@ Tests/Guards/FailNestedDownGuardsTest.hs : [parser failure]
 Tests/Guards/FailNestedUpGuardsTest.hs : [renamer failure]
 Tests/Guards/FailUnboundInGuardTest.hs : [renamer failure]
 Tests/Guards/FailUnboundInRhsTest.hs : [renamer failure]
+Tests/Guards/IncompleteWithOrTest.hs : Cons [Number] (Succ Zero) (Nil [Number])
 Tests/Guards/MultipleGuardsTest.hs : Succ (Succ Zero)
 Tests/Guards/NestedCaseOfWithGuardsTest.hs : Succ (Succ (Succ Zero))
 Tests/Guards/SimpleFlippedTest.hs : Zero
