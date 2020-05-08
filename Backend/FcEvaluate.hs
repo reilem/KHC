@@ -158,7 +158,7 @@ fullEval t = fullStep t >>= \case
     Left err  -> return $ Left err
   result -> return $ result
 
-fcEvaluate :: UniqueSupply -> FcProgram 'Fc -> Either String (FcTerm 'Fc, Int, Int)
+fcEvaluate :: UniqueSupply -> FcProgram 'Fc -> Either String (FcTerm 'Fc, Int)
 fcEvaluate us pgm =
   -- 1. Collapse the program to produce a single term that can be evaluated
   let pgmTm = collapseProgram pgm in
@@ -171,4 +171,4 @@ fcEvaluate us pgm =
   let ((res, _), steps) = runState (runUniqueSupplyT (fullEval gtm) us) 0 in
   case res of
     Left err -> Left err
-    Right result-> Right (result, steps, size pgmTm)
+    Right result-> Right (result, steps)

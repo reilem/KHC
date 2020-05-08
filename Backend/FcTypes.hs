@@ -476,17 +476,28 @@ class Size a where
 instance Size a => Size [a] where
   size = foldr ((+) . size) 0
 
+instance Size (FcProgram a) where
+  size (FcPgmDataDecl _ pgm) = size pgm
+  size (FcPgmValDecl  _ pgm) = size pgm
+  size (FcPgmTerm     tm   ) = size tm
+
+instance Size (FcType) where
+  size (FcTyVar     {} ) = 1
+  size (FcTyCon     {} ) = 1
+  size (FcTyAbs _   ty ) = size ty + 1
+  size (FcTyApp ty1 ty2) = size ty1 + size ty2
+
 instance Size (FcTerm a) where
   size (FcTmERROR {})   = 1
   size (FcTmVar {})     = 1
   size (FcTmDataCon {}) = 1
 
-  size (FcTmAbs _ _ t)  = size t + 1
-  size (FcTmTyAbs _ t)  = size t + 1
-  size (FcTmTyApp t _)  = size t + 1
+  size (FcTmAbs _ ty t)     = size ty + size t + 1
+  size (FcTmTyAbs _  t)     = size t + 1
+  size (FcTmLet _ ty t1 t2) = size ty + size t1 + size t2 + 1
 
-  size (FcTmApp     t1 t2) = size t1 + size t2 + 1
-  size (FcTmLet _ _ t1 t2) = size t1 + size t2 + 1
+  size (FcTmTyApp    t  ty) = size ty + size t
+  size (FcTmApp      t1 t2) = size t1 + size t2
 
   size (FcTmCaseFc     t as) = size t + size as + 1
   size (FcTmCaseTc _ _ t as) = size t + size as + 1
@@ -502,7 +513,7 @@ instance Size (FcGuard a) where
   size (FcPatGuard p t) = size p + size t + 1
 
 instance Size (FcPat a) where
-  size (FcConPat   _dc xs) = length xs + 1
-  size (FcConPatNs _dc ps) = size ps + 1
-  size (FcVarPat       {}) = 1
-  size (FcOrPat    p1  p2) = size p1 + size p2 + 1
+  size (FcVarPat      {}) = 1
+  size (FcConPat   _  xs) = length xs + 1
+  size (FcConPatNs _  ps) = size ps + 1
+  size (FcOrPat    p1 p2) = size p1 + size p2 + 1
