@@ -41,8 +41,7 @@ runTest file = do
                       putStrLn $ renderWithColor $ ppr tc_pgm
                       putStrLn "---------------------------- Elaborated Program ---------------------------"
                       putStrLn $ renderWithColor $ ppr fc_pgm
-                      putStrLn ""
-                      putStrLn $ renderWithColor $ text "Term Size" <+> colon <+> ppr (size fc_pgm)
+                      putStrLn $ renderWithColor $ text "\nTerm Size" <+> colon <+> ppr (size fc_pgm)
                       putStrLn "------------------------------- Program Type ------------------------------"
                       putStrLn $ renderWithColor $ ppr tc_ty
                       putStrLn "------------------------------ Program Theory -----------------------------"
@@ -53,8 +52,8 @@ runTest file = do
                       case fcEvaluate us3 fc_pgm of
                         Left err -> throwMainError "Evaluation error" err
                         Right (res, steps) -> do
-                          putStrLn $ renderWithColor $ text "Steps" <+> colon <+> ppr steps
                           putStrLn $ renderWithColor $ ppr res
+                          putStrLn $ renderWithColor $ text "\nSteps" <+> colon <+> ppr steps
   where
     throwMainError phase e
       | label <- colorDoc red (text phase <+> text "failure")
