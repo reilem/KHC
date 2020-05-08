@@ -149,7 +149,7 @@ fullEval t = fullStep t >>= \case
     Left err  -> return $ Left err
   result -> return $ result
 
-fcEvaluate :: UniqueSupply -> FcProgram 'Fc -> (Either String (FcTerm 'Fc), UniqueSupply)
+fcEvaluate :: UniqueSupply -> FcProgram 'Fc -> Either String (FcTerm 'Fc, Int, Int)
 fcEvaluate us pgm =
   -- 1. Collapse the program to produce a single term that can be evaluated
   let pgmTm = collapseProgram pgm in
@@ -158,4 +158,6 @@ fcEvaluate us pgm =
   let gtm   = groundTerm pgmTm in
   -- 3. Fully evaluate the grounded term. Evaluation is run using unique supply
   --    to allow for variable freshening during substitution.
-  runUniqueSupplyM (fullEval gtm) us
+  case runUniqueSupplyM (fullEval gtm) us of
+    (Left err, _)              -> Left err
+    (Right result, _) -> Right (result, 0, size pgmTm)

@@ -465,3 +465,44 @@ instance PrettyPrint (FcProgram a) where
   ppr (FcPgmValDecl  valbind  pgm) = ppr valbind  $$ ppr pgm
   ppr (FcPgmTerm tm)               = ppr tm
   needsParens _ = False
+
+-- * Term Size
+-- -----------
+
+-- We define size as: number of nodes in abstract syntax tree
+class Size a where
+  size :: a -> Int
+
+instance Size a => Size [a] where
+  size = foldr ((+) . size) 0
+
+instance Size (FcTerm a) where
+  size (FcTmERROR {})   = 1
+  size (FcTmVar {})     = 1
+  size (FcTmDataCon {}) = 1
+
+  size (FcTmAbs _ _ t)  = size t + 1
+  size (FcTmTyAbs _ t)  = size t + 1
+  size (FcTmTyApp t _)  = size t + 1
+
+  size (FcTmApp     t1 t2) = size t1 + size t2 + 1
+  size (FcTmLet _ _ t1 t2) = size t1 + size t2 + 1
+
+  size (FcTmCaseFc     t as) = size t + size as + 1
+  size (FcTmCaseTc _ _ t as) = size t + size as + 1
+
+instance Size (FcAlt a) where
+  size (FcAltTc p gs) = size p + size gs + 1
+  size (FcAltFc p t) = size p + size t + 1
+
+instance Size (FcGuarded a) where
+  size (FcGuarded gs e) = size gs + size e + 1
+
+instance Size (FcGuard a) where
+  size (FcPatGuard p t) = size p + size t + 1
+
+instance Size (FcPat a) where
+  size (FcConPat   _dc xs) = length xs + 1
+  size (FcConPatNs _dc ps) = size ps + 1
+  size (FcVarPat       {}) = 1
+  size (FcOrPat    p1  p2) = size p1 + size p2 + 1
