@@ -19,10 +19,12 @@ import Utils.Unique
 import Utils.Utils
 import Data.Maybe
 
+import Control.Monad.State
+
 -- * Evaluation Monad
 -- ----------------------------------------------------------------------------
 
-type EvM = UniqueSupplyM
+type EvM = UniqueSupplyT (State Int)
 
 -- * Operational Semantics
 -- ----------------------------------------------------------------------------
@@ -46,16 +48,20 @@ smallStep (FcTmCaseFc e1@(FcTmERROR {}) _) = pure $ Just e1
 -- Useful cases (substitution)
 smallStep (FcTmApp (FcTmAbs x _ body) e2) = Just <$> do
   newe <- freshenLclBndrs e2
+  increment
   pure $ substVar x newe body
 smallStep (FcTmTyApp (FcTmTyAbs a body) ty) = Just <$> do
   newty <- freshenLclBndrs ty
+  increment
   pure $ substVar a newty body
 smallStep (FcTmLet x ty e1 e2) = do
   newe1 <- freshenLclBndrs $ FcTmLet x ty e1 e1
+  increment
   pure <$> Just $ substVar x newe1 e2
 smallStep (FcTmCaseFc scr alts)
-  | Just (dc, args) <- userDefinedDataConAppMaybe scr
-  = matchTheAlts dc args alts
+  | Just (dc, args) <- userDefinedDataConAppMaybe scr = do
+    increment
+    matchTheAlts dc args alts
 
 -- Congruences
 smallStep (FcTmApp e1 e2) = smallStep e1 >>= \case
@@ -67,6 +73,9 @@ smallStep (FcTmTyApp e1 ty) = smallStep e1 >>= \case
 smallStep (FcTmCaseFc scr alts) = smallStep scr >>= \case
   Just scr' -> pure $ Just $ FcTmCaseFc scr' alts
   Nothing   -> pure $ Nothing
+
+increment :: EvM ()
+increment = get >>= (\x -> put $ x + 1)
 
 -- | Check whether a term is a user-defined data constructor application.
 isUserDefinedDataConApp :: FcTerm 'Fc -> Bool
@@ -157,7 +166,9 @@ fcEvaluate us pgm =
   --    otherwise they will prevent meaningful evaluation.
   let gtm   = groundTerm pgmTm in
   -- 3. Fully evaluate the grounded term. Evaluation is run using unique supply
-  --    to allow for variable freshening during substitution.
-  case runUniqueSupplyM (fullEval gtm) us of
-    (Left err, _)              -> Left err
-    (Right result, _) -> Right (result, 0, size pgmTm)
+  --    to allow for variable freshening during substitution. The state
+  --    monad is used to count the number of evaluation steps required.
+  let ((res, _), steps) = runState (runUniqueSupplyT (fullEval gtm) us) 0 in
+  case res of
+    Left err -> Left err
+    Right result-> Right (result, steps, size pgmTm)
