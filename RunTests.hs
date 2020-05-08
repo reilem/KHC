@@ -56,7 +56,7 @@ runSingleTest file = hsParse file >>= \case
               (Right (((fc_pgm, _), us3), _), _) -> do
                 case fcEvaluate us3 fc_pgm of
                   Left err -> testError "Evaluation error" err
-                  Right (res, _, _) -> return $ render $ ppr res
+                  Right (res, _) -> return $ render $ ppr res
 
 testError :: String -> String -> IO String
 testError phase e
