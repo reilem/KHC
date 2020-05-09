@@ -126,34 +126,6 @@ fullStep t = smallStep t >>= \case
     FcTmERROR err _ -> return $ Left err
     res             -> return $ Right res
 
--- | Convert a program to a simple expression (local let-bindings).
--- Essentially: all value bindings are converted into let-bindings, data
--- declarations are ignored.
-collapseProgram :: FcProgram 'Fc -> FcTerm 'Fc
-collapseProgram = \case
-  FcPgmTerm e                        ->  e
-  FcPgmDataDecl _ p                  -> collapseProgram p
-  FcPgmValDecl (FcValBind x ty e1) p -> FcTmLet x ty e1 $ collapseProgram p
-
--- | Grounds the given term by looking for top-level type abstractions, and
--- then applying it on as many unit values as needed. This is only patched
--- grounding, and so no internal type abstractions are grounded. For example:
---
--- > /\ a. let f = <expr1> in <expr2>
---
--- is grounded to:
---
--- > (/\ a. let f = <expr1> in <expr2>) Unit
---
--- But @(let f = <expr1> in /\a. <expr2>)@ is left unchanged. We do this
--- because we know the elaboration and desugaring phases only produce top level
--- type abstractions. So this method will be sufficient in all cases.
--- TODO: In the future, this function should be type-directed: the type should
--- determine whether we should create an application to unit or not.
-groundTerm :: FcTerm 'Fc -> FcTerm 'Fc
-groundTerm (FcTmTyAbs ty t1) = FcTmTyApp (FcTmTyAbs ty (groundTerm t1)) fcUnitTy
-groundTerm t                 = t
-
 -- | Fully evaluates a given term.
 fullEval :: FcTerm 'Fc -> EvM (Either String (FcTerm 'Fc))
 fullEval t = fullStep t >>= \case
@@ -164,17 +136,8 @@ fullEval t = fullStep t >>= \case
     Left err  -> return $ Left err
   result -> return $ result
 
-fcEvaluate :: UniqueSupply -> FcProgram 'Fc -> Either String (FcTerm 'Fc, Int)
-fcEvaluate us pgm =
-  -- 1. Collapse the program to produce a single term that can be evaluated
-  let pgmTm = collapseProgram pgm in
-  -- 2. Ground all top level type abstractions using Unit type,
-  --    otherwise they will prevent meaningful evaluation.
-  let gtm   = groundTerm pgmTm in
-  -- 3. Fully evaluate the grounded term. Evaluation is run using unique supply
-  --    to allow for variable freshening during substitution. The state
-  --    monad is used to count the number of evaluation steps required.
-  let ((res, _), steps) = runState (runUniqueSupplyT (fullEval gtm) us) 0 in
-  case res of
-    Left err -> Left err
-    Right result-> Right (result, steps)
+-- | Fully evaluates the given term. Evaluation is run using unique supply
+-- to allow for variable freshening during substitution. The state
+-- monad is used to count the number of evaluation steps required.
+fcEvaluate :: UniqueSupply -> FcTerm 'Fc -> ((Either String (FcTerm 'Fc), UniqueSupply), Int)
+fcEvaluate us tm = runState (runUniqueSupplyT (fullEval tm) us) 0

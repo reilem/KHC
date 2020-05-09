@@ -7,6 +7,7 @@ import Frontend.HsRenamer     (hsRename)
 import Frontend.HsTypeChecker (hsTypeCheck)
 import Backend.FcTypes
 import Backend.FcTypeChecker  (fcTypeCheck)
+import Backend.FcLinker       (fcLink)
 import Backend.FcEvaluate     (fcEvaluate)
 
 import Utils.Unique  (newUniqueSupply)
@@ -37,23 +38,29 @@ runTest file = do
                   case fcTypeCheck envs us2 tc_pgm of
                     (Left err,_) -> throwMainError "System F typechecker" err
                     (Right (((fc_pgm, fc_ty), us3), _fc_env), _trace) -> do
+                      let fc_tm = fcLink fc_pgm
                       putStrLn "--------------------------- Type Checked Program --------------------------"
                       putStrLn $ renderWithColor $ ppr tc_pgm
                       putStrLn "---------------------------- Elaborated Program ---------------------------"
                       putStrLn $ renderWithColor $ ppr fc_pgm
-                      putStrLn $ renderWithColor $ text "\nTerm Size" <+> colon <+> ppr (size fc_pgm)
                       putStrLn "------------------------------- Program Type ------------------------------"
                       putStrLn $ renderWithColor $ ppr tc_ty
                       putStrLn "------------------------------ Program Theory -----------------------------"
                       putStrLn $ renderWithColor $ ppr theory
                       putStrLn "-------------------------- System F Program Type --------------------------"
                       putStrLn $ renderWithColor $ ppr fc_ty
-                      putStrLn "---------------------------- Evaluation Result ----------------------------"
-                      case fcEvaluate us3 fc_pgm of
-                        Left err -> throwMainError "Evaluation error" err
-                        Right (res, steps) -> do
-                          putStrLn $ renderWithColor $ ppr res
-                          putStrLn $ renderWithColor $ text "\nSteps" <+> colon <+> ppr steps
+                      putStrLn "----------------------------- Evaluation Term -----------------------------"
+                      putStrLn $ renderWithColor $ ppr fc_tm
+                      case fcEvaluate us3 fc_tm of
+                        ((result, _), steps) -> do
+                          putStrLn "----------------------------- Evaluation Info -----------------------------"
+                          putStrLn $ renderWithColor $ text "Term Size" <+> colon <+> ppr (size fc_tm)
+                          putStrLn $ renderWithColor $ text "Steps" <+> colon <+> ppr steps
+                          putStrLn "---------------------------- Evaluation Result ----------------------------"
+                          case result of
+                            Left  err -> throwMainError "Evaluation error" err
+                            Right res -> putStrLn $ renderWithColor $ ppr res
+
   where
     throwMainError phase e
       | label <- colorDoc red (text phase <+> text "failure")
