@@ -1,6 +1,8 @@
 Tests/CaseLevelVarBindPatternTest.hs : Cons [Number] Zero (Cons [Number] Zero (Nil [Number]))
 Tests/FailArityWrongPatternTest.hs : [renamer failure]
 Tests/FailBigNestedNonDistinctPatternTest.hs : [renamer failure]
+Tests/FailErrorTest1.hs : [Evaluation error failure] Expected Failure
+Tests/FailErrorTest2.hs : [Evaluation error failure] Expected Failure
 Tests/FailIncompletePatternTest.hs : [Evaluation error failure] Match Failed
 Tests/FailNonDistinctPatternTest.hs : [renamer failure]
 Tests/FailOrPatternDistinctTest1.hs : [renamer failure]
