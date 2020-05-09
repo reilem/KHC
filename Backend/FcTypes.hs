@@ -19,7 +19,7 @@ import Utils.FreeVars
 
 import Data.Maybe (isJust)
 import Data.Function (on)
-import Data.List (nub, (\\), union, intersect)
+import Data.List (nub, (\\), union, intersect, sum)
 
 -- * Arrow Type Constructor
 -- ----------------------------------------------------------------------------
@@ -465,3 +465,61 @@ instance PrettyPrint (FcProgram a) where
   ppr (FcPgmValDecl  valbind  pgm) = ppr valbind  $$ ppr pgm
   ppr (FcPgmTerm tm)               = ppr tm
   needsParens _ = False
+
+-- * Term Size
+-- -----------
+
+-- We define size as: number of nodes in abstract syntax tree, for terms and types
+class Size a where
+  size :: a -> Int
+
+instance Size a => Size [a] where
+  size = sum . map size
+
+instance Size FcTyCon where
+  size (FcTC {}) = 1
+
+instance Size FcDataCon where
+  size (FcDC {}) = 1
+
+instance Size FcTmVar where
+  size _ = 1
+
+instance Size FcTyVar where
+  size _ = 1
+
+instance Size (FcType) where
+  size (FcTyVar     x )  = size x
+  size (FcTyCon     c )  = size c
+  size (FcTyAbs _x  ty ) = size ty + 1
+  size (FcTyApp ty1 ty2) = size ty1 + size ty2
+
+instance Size (FcTerm a) where
+  size (FcTmVar     x    ) = size x
+  size (FcTmDataCon c    ) = size c
+
+  size (FcTmTyApp    t  ty) = size t  + size ty
+  size (FcTmApp      t1 t2) = size t1 + size t2
+
+  size (FcTmERROR  _e  ty      ) = size ty + 1
+  size (FcTmAbs    _x  ty t    ) = size ty + size t + 1
+  size (FcTmTyAbs  _x  t       ) = size t + 1
+  size (FcTmLet    _x  ty t1 t2) = size ty + size t1 + size t2 + 1
+  size (FcTmCaseFc         t as) = size t + size as + 1
+  size (FcTmCaseTc ty1 ty2 t as) = size ty1 + size ty2 + size t + size as + 1
+
+instance Size (FcAlt a) where
+  size (FcAltTc p gs) = size p + size gs
+  size (FcAltFc p t ) = size p + size t
+
+instance Size (FcGuarded a) where
+  size (FcGuarded gs e) = size gs + size e
+
+instance Size (FcGuard a) where
+  size (FcPatGuard p t) = size p + size t
+
+instance Size (FcPat a) where
+  size (FcVarPat      x)  = size x
+  size (FcConPat   c  xs) = size c + size xs
+  size (FcConPatNs c  ps) = size c + size ps
+  size (FcOrPat    p1 p2) = size p1 + size p2 + 1

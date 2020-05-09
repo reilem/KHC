@@ -6,6 +6,7 @@ import Frontend.HsParser      (hsParse)
 import Frontend.HsRenamer     (hsRename)
 import Frontend.HsTypeChecker (hsTypeCheck)
 import Backend.FcTypeChecker  (fcTypeCheck)
+import Backend.FcLinker       (fcLink)
 import Backend.FcEvaluate     (fcEvaluate)
 
 import Utils.Unique  (newUniqueSupply)
@@ -54,9 +55,9 @@ runSingleTest file = hsParse file >>= \case
             case fcTypeCheck envs us2 tc_pgm of
               (Left err,_) -> testError "System F typechecker" err
               (Right (((fc_pgm, _), us3), _), _) -> do
-                case fcEvaluate us3 fc_pgm of
-                  (Left err, _) -> testError "Evaluation error" err
-                  (Right res, _) -> return $ render $ ppr res
+                case fcEvaluate us3 (fcLink fc_pgm) of
+                  ((Left err, _), _) -> testError "Evaluation error" err
+                  ((Right res, _), _) -> return $ render $ ppr res
 
 testError :: String -> String -> IO String
 testError phase e
