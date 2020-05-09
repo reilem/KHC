@@ -89,7 +89,6 @@ userDefinedDataConAppMaybe tm
   | Just (dc, fn) <- go tm = Just (dc, fn [])
   | otherwise              = Nothing
   where
-    -- TODO: ADD UNIT
     go (FcTmDataCon dc) = Just (dc, id)
     go (FcTmApp e1 e2)  | Just (dc, args) <- go e1 = Just (dc, args . (e2:))
     go (FcTmTyApp e1 _) = go e1
