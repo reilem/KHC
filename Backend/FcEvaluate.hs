@@ -41,15 +41,9 @@ smallStep (FcTmVar {})   = pure Nothing
 smallStep (FcTmERROR {}) = pure Nothing
 
 -- Error propagation
-smallStep (FcTmApp    e1@(FcTmERROR {}) _) = do
-  increment
-  pure $ Just e1
-smallStep (FcTmTyApp  e1@(FcTmERROR {}) _) = do
-  increment
-  pure $ Just e1
-smallStep (FcTmCaseFc e1@(FcTmERROR {}) _) = do
-  increment
-  pure $ Just e1
+smallStep (FcTmApp    e1@(FcTmERROR {}) _) = increment >> pure (Just e1)
+smallStep (FcTmTyApp  e1@(FcTmERROR {}) _) = increment >> pure (Just e1)
+smallStep (FcTmCaseFc e1@(FcTmERROR {}) _) = increment >> pure (Just e1)
 
 -- Useful cases (substitution)
 smallStep (FcTmApp (FcTmAbs x _ body) e2) = Just <$> do

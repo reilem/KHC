@@ -476,16 +476,16 @@ class Size a where
 instance Size a => Size [a] where
   size = sum . map size
 
-instance Size (FcTyCon) where
+instance Size FcTyCon where
   size (FcTC {}) = 1
 
-instance Size (FcDataCon) where
+instance Size FcDataCon where
   size (FcDC {}) = 1
 
-instance Size (FcTmVar) where
+instance Size FcTmVar where
   size _ = 1
 
-instance Size (FcTyVar) where
+instance Size FcTyVar where
   size _ = 1
 
 instance Size (FcType) where
@@ -522,4 +522,4 @@ instance Size (FcPat a) where
   size (FcVarPat      x)  = size x
   size (FcConPat   c  xs) = size c + size xs
   size (FcConPatNs c  ps) = size c + size ps
-  size (FcOrPat    p1 p2) = size p1 + size p2
+  size (FcOrPat    p1 p2) = size p1 + size p2 + 1
