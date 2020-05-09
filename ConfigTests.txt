@@ -31,6 +31,7 @@ Tests/Guards/FailGuardsWithoutBarTest.hs : [parser failure]
 Tests/Guards/FailIncompleteWithOrTest.hs : [Evaluation error failure] Match Failed
 Tests/Guards/FailInconsistentGuardsTest.hs : [typechecker failure]
 Tests/Guards/FailInconsistentRhsTest.hs : [typechecker failure]
+Tests/Guards/FailKarachaliasTest.hs : [Evaluation error failure] Expected Failure
 Tests/Guards/FailLazyMatchTest.hs : [Evaluation error failure] head error
 Tests/Guards/FailMixEquationAndGuarded.hs : [parser failure]
 Tests/Guards/FailMixGuardedAndEquation.hs : [parser failure]
@@ -39,6 +40,7 @@ Tests/Guards/FailNestedUpGuardsTest.hs : [renamer failure]
 Tests/Guards/FailUnboundInGuardTest.hs : [renamer failure]
 Tests/Guards/FailUnboundInRhsTest.hs : [renamer failure]
 Tests/Guards/IncompleteWithOrTest.hs : Cons [Number] (Succ Zero) (Nil [Number])
+Tests/Guards/KarachaliasTest.hs : Three
 Tests/Guards/LazyMatchTest.hs : Succ Zero
 Tests/Guards/MultipleGuardsTest.hs : Succ (Succ Zero)
 Tests/Guards/NestedCaseOfWithGuardsTest.hs : Succ (Succ (Succ Zero))
