@@ -122,9 +122,10 @@ fullStep t = smallStep t >>= \case
 -- | Fully evaluates a given term.
 fullEval :: FcTerm 'Fc -> EvM (Either String (FcTerm 'Fc))
 fullEval t = fullStep t >>= \case
-  -- NOTE: Only eval right term, left is evaluated by congruence rules
-  Right (FcTmApp t1 t2) -> fullEval t2 >>= \case
-    Right t2' -> fullStep (FcTmApp t1 t2')
+  Right (FcTmApp t1 t2) -> fullEval t1 >>= \case
+    Right t1' -> fullEval t2 >>= \case
+      Right t2' -> fullStep (FcTmApp t1' t2')
+      Left err  -> return $ Left err
     Left err  -> return $ Left err
   result -> return $ result
 
