@@ -1,26 +1,31 @@
 Tests/CaseLevelVarBindPatternTest.hs : Cons [Number] Zero (Cons [Number] Zero (Nil [Number]))
 Tests/FailArityWrongPatternTest.hs : [renamer failure]
 Tests/FailBigNestedNonDistinctPatternTest.hs : [renamer failure]
+Tests/FailErrorTest1.hs : [Evaluation error failure] Expected Failure
+Tests/FailErrorTest2.hs : [Evaluation error failure] Expected Failure
 Tests/FailIncompletePatternTest.hs : [Evaluation error failure] Match Failed
 Tests/FailNonDistinctPatternTest.hs : [renamer failure]
 Tests/FailOrPatternDistinctTest1.hs : [renamer failure]
 Tests/FailOrPatternDistinctTest2.hs : [renamer failure]
+Tests/FailOverlapOrLazyTest.hs : [Evaluation error failure] Expected Failure
 Tests/FailWeirdPatternTest.hs : [parser failure]
+Tests/NestedPatternBigTest.hs : Two
+Tests/NestedPatternTest.hs : Succ (Succ Zero)
+Tests/OrPatternAutoSimplifyTest.hs : Cons [List Number] (Cons [Number] Zero (Nil [Number])) (Nil [List Number])
+Tests/OrPatternBigTest.hs : One
+Tests/OrPatternMediumTest.hs : Cons [List Number] (Cons [Number] (Succ Zero) (Nil [Number])) (Nil [List Number])
 Tests/OrPatternNestedBigTest.hs : Succ Zero
 Tests/OrPatternNestedTest.hs : Two
-Tests/OrPatternTest.hs : Cons [List Number] (Cons [Number] (Succ Zero) (Nil [Number])) (Nil [List Number])
+Tests/OrPatternSmallTest.hs : Zero
+Tests/OverlapOrLazyTest.hs : Cons [Number] Zero (Nil [Number])
 Tests/PatternDuplicateOutcomeTest.hs : Two
 Tests/ParensPatternTest.hs : Succ (Succ (Succ Zero))
 Tests/PatternTest.hs : Succ (Succ (Succ (Succ (Succ Zero))))
 Tests/Test1.hs : False
 Tests/TypeVariablesTest.hs : (((Double [Null]) [Null]) [()]) [()] Null Null
-Tests/NestedPatternBigTest.hs : Two
 Tests/UnitPatternTest.hs : Succ Zero
-Tests/NestedPatternTest.hs : Succ (Succ Zero)
 Tests/UnitTest.hs : Zero
-Tests/OrPatternAutoSimplifyTest.hs : Cons [List Number] (Cons [Number] Zero (Nil [Number])) (Nil [List Number])
 Tests/WildcardPatternTest.hs : Two
-Tests/OrPatternBigTest.hs : One
 Tests/Guards/BigWithOrTest.hs : Succ (Succ (Succ Zero))
 Tests/Guards/ComplexLargeTest.hs : Node [Number] (Node [Number] (Leaf [Number] Zero) (Leaf [Number] Zero)) (Leaf [Number] (Succ Zero))
 Tests/Guards/ComplexLargeWithOrTest.hs : Node [Number] (EmptyLeaf [Number]) (Leaf [Number] (Succ (Succ Zero)))
@@ -28,14 +33,20 @@ Tests/Guards/ComplexMediumTest.hs : Cons [Number] (Succ Zero) (Cons [Number] Zer
 Tests/Guards/ComplexSmallTest.hs : Cons [Number] Zero (Cons [Number] Zero (Nil [Number]))
 Tests/Guards/FailBarWithoutGuardTest.hs : [parser failure]
 Tests/Guards/FailGuardsWithoutBarTest.hs : [parser failure]
+Tests/Guards/FailIncompleteWithOrTest.hs : [Evaluation error failure] Match Failed
 Tests/Guards/FailInconsistentGuardsTest.hs : [typechecker failure]
 Tests/Guards/FailInconsistentRhsTest.hs : [typechecker failure]
+Tests/Guards/FailKarachaliasTest.hs : [Evaluation error failure] Expected Failure
+Tests/Guards/FailLazyMatchTest.hs : [Evaluation error failure] head error
 Tests/Guards/FailMixEquationAndGuarded.hs : [parser failure]
 Tests/Guards/FailMixGuardedAndEquation.hs : [parser failure]
 Tests/Guards/FailNestedDownGuardsTest.hs : [parser failure]
 Tests/Guards/FailNestedUpGuardsTest.hs : [renamer failure]
 Tests/Guards/FailUnboundInGuardTest.hs : [renamer failure]
 Tests/Guards/FailUnboundInRhsTest.hs : [renamer failure]
+Tests/Guards/IncompleteWithOrTest.hs : Cons [Number] (Succ Zero) (Nil [Number])
+Tests/Guards/KarachaliasTest.hs : Three
+Tests/Guards/LazyMatchTest.hs : Succ Zero
 Tests/Guards/MultipleGuardsTest.hs : Succ (Succ Zero)
 Tests/Guards/NestedCaseOfWithGuardsTest.hs : Succ (Succ (Succ Zero))
 Tests/Guards/SimpleFlippedTest.hs : Zero
