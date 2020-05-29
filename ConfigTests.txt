@@ -13,7 +13,7 @@ Tests/NestedPatternBigTest.hs : Two
 Tests/NestedPatternTest.hs : Succ (Succ Zero)
 Tests/OrPatternAutoSimplifyTest.hs : Cons [List Number] (Cons [Number] Zero (Nil [Number])) (Nil [List Number])
 Tests/OrPatternBigTest.hs : One
-Tests/OrPatternMediumTest.hs : Cons [List Number] (Cons [Number] (Succ Zero) (Nil [Number])) (Nil [List Number])
+Tests/OrPatternMediumTest.hs : Cons [Number] (Succ Zero) (Cons [Number] (Succ Zero) (Nil [Number]))
 Tests/OrPatternNestedBigTest.hs : Succ Zero
 Tests/OrPatternNestedTest.hs : Two
 Tests/OrPatternSmallTest.hs : Zero
