@@ -411,6 +411,13 @@ matchOr us (preq, (allPs@((FcOrPat p1 p2):ps), rhs), postq) def = do
 matchOr [] _ _ = panic ("matchOr: empty variable")
 matchOr _  _ _ = panic ("matchOr: no or-pattern in equations")
 
+-- | Match an or-pattern using flattening
+matchFlatOr :: [FcTmVar] -> ([PmEqn], PmEqn, [PmEqn]) -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
+matchFlatOr us (preq, (((FcOrPat p1 p2):ps), rhs), postq) def =
+  match us (preq ++ [(p1:ps, rhs), (p2:ps, rhs)] ++ postq) def
+matchFlatOr [] _ _ = panic ("matchOr: empty variable")
+matchFlatOr _  _ _ = panic ("matchOr: no or-pattern in equations")
+
 -- | Match a list of equations according to variable or constructor rule
 matchVarCon :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 matchVarCon us (q@(((FcConPatNs _ _):_), _):qs) def = matchCon us (q:qs) def
@@ -420,7 +427,7 @@ matchVarCon _  qs                               _   = panic ("matchVarCon: inval
 -- | Main match function
 match :: [FcTmVar] -> [PmEqn] -> FcTerm 'Fc -> FcM (FcTerm 'Fc)
 match us@(_:_) qs       def
-  | Just qs' <- extractOr qs = matchOr us qs' def
+  | Just qs' <- extractOr qs = matchFlatOr us qs' def
   | otherwise                = foldrM (matchVarCon us) def (partition qs)
 match []       qs@(_:_) def  = foldrM matchGs          def (extractGrs qs)
 match []       []       def  = return def
