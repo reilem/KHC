@@ -39,16 +39,16 @@ runTest file = do
                     (Left err,_) -> throwMainError "System F typechecker" err
                     (Right (((fc_pgm, fc_ty), us3), _fc_env), _trace) -> do
                       let fc_tm = fcLink fc_pgm
-                      putStrLn "--------------------------- Type Checked Program --------------------------"
-                      putStrLn $ renderWithColor $ ppr tc_pgm
-                      putStrLn "---------------------------- Elaborated Program ---------------------------"
-                      putStrLn $ renderWithColor $ ppr fc_pgm
-                      putStrLn "------------------------------- Program Type ------------------------------"
-                      putStrLn $ renderWithColor $ ppr tc_ty
-                      putStrLn "------------------------------ Program Theory -----------------------------"
-                      putStrLn $ renderWithColor $ ppr theory
-                      putStrLn "-------------------------- System F Program Type --------------------------"
-                      putStrLn $ renderWithColor $ ppr fc_ty
+                      -- putStrLn "--------------------------- Type Checked Program --------------------------"
+                      -- putStrLn $ renderWithColor $ ppr tc_pgm
+                      -- putStrLn "---------------------------- Elaborated Program ---------------------------"
+                      -- putStrLn $ renderWithColor $ ppr fc_pgm
+                      -- putStrLn "------------------------------- Program Type ------------------------------"
+                      -- putStrLn $ renderWithColor $ ppr tc_ty
+                      -- putStrLn "------------------------------ Program Theory -----------------------------"
+                      -- putStrLn $ renderWithColor $ ppr theory
+                      -- putStrLn "-------------------------- System F Program Type --------------------------"
+                      -- putStrLn $ renderWithColor $ ppr fc_ty
                       putStrLn "----------------------------- Evaluation Term -----------------------------"
                       putStrLn $ renderWithColor $ ppr fc_tm
                       case fcEvaluate us3 fc_tm of
