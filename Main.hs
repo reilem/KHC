@@ -34,10 +34,10 @@ runTest file = do
         (Right (((rn_pgm, _rn_ctx), us1), rn_env), _) ->
           case hsTypeCheck rn_env us1 rn_pgm of
             (Left err,_) -> throwMainError "typechecker" err
-            (Right ((((tc_pgm, tc_ty, theory), envs), us2), _tc_env), _) ->
+            (Right ((((tc_pgm, _tc_ty, _theory), envs), us2), _tc_env), _) ->
                   case fcTypeCheck envs us2 tc_pgm of
                     (Left err,_) -> throwMainError "System F typechecker" err
-                    (Right (((fc_pgm, fc_ty), us3), _fc_env), _trace) -> do
+                    (Right (((fc_pgm, _fc_ty), us3), _fc_env), _trace) -> do
                       let fc_tm = fcLink fc_pgm
                       -- putStrLn "--------------------------- Type Checked Program --------------------------"
                       -- putStrLn $ renderWithColor $ ppr tc_pgm
